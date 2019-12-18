@@ -7,14 +7,23 @@ import sys
 import time
 import traceback
 import warnings
+from _asyncio import Future, Task
 from contextlib import suppress
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
+from adaptive.learner.base_learner import BaseLearner
 from adaptive.notebook_integration import in_ipynb, live_info, live_plot
+
+_ThirdPartyClient = []
+_ThirdPartyExecutor = []
 
 try:
     import ipyparallel
+    from ipyparallel.client.asyncresult import AsyncResult
 
     with_ipyparallel = True
+    _ThirdPartyClient.append(ipyparallel.Client)
+    _ThirdPartyExecutor.append(ipyparallel.client.view.ViewExecutor)
 except ModuleNotFoundError:
     with_ipyparallel = False
 
@@ -22,6 +31,8 @@ try:
     import distributed
 
     with_distributed = True
+    _ThirdPartyClient.append(distributed.Client)
+    _ThirdPartyExecutor.append(distributed.cfexecutor.ClientExecutor)
 except ModuleNotFoundError:
     with_distributed = False
 
@@ -29,6 +40,7 @@ try:
     import mpi4py.futures
 
     with_mpi4py = True
+    _ThirdPartyExecutor.append(mpi4py.futures.MPIPoolExecutor)
 except ModuleNotFoundError:
     with_mpi4py = False
 
@@ -38,8 +50,82 @@ with suppress(ModuleNotFoundError):
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
+# -- Internal executor-related, things
+
+
+class SequentialExecutor(concurrent.Executor):
+    """A trivial executor that runs functions synchronously.
+
+    This executor is mainly for testing.
+    """
+
+    def submit(self, fn: Callable, *args, **kwargs) -> Future:
+        fut = concurrent.Future()
+        try:
+            fut.set_result(fn(*args, **kwargs))
+        except Exception as e:
+            fut.set_exception(e)
+        return fut
+
+    def map(self, fn, *iterable, timeout=None, chunksize=1):
+        return map(fn, iterable)
+
+    def shutdown(self, wait=True):
+        pass
+
+
+def _ensure_executor(
+    executor: Optional[Union[(*_ThirdPartyClient, concurrent.Executor)]]
+) -> concurrent.Executor:
+    if executor is None:
+        executor = concurrent.ProcessPoolExecutor()
+
+    if isinstance(executor, concurrent.Executor):
+        return executor
+    elif with_ipyparallel and isinstance(executor, ipyparallel.Client):
+        return executor.executor()
+    elif with_distributed and isinstance(executor, distributed.Client):
+        return executor.get_executor()
+    else:
+        raise TypeError(
+            "Only a concurrent.futures.Executor, distributed.Client,"
+            " or ipyparallel.Client can be used."
+        )
+
+
+def _get_ncores(
+    ex: Union[
+        (
+            *_ThirdPartyExecutor,
+            concurrent.ProcessPoolExecutor,
+            concurrent.ThreadPoolExecutor,
+            SequentialExecutor,
+        )
+    ]
+) -> int:
+    """Return the maximum  number of cores that an executor can use."""
+    if with_ipyparallel and isinstance(ex, ipyparallel.client.view.ViewExecutor):
+        return len(ex.view)
+    elif isinstance(
+        ex, (concurrent.ProcessPoolExecutor, concurrent.ThreadPoolExecutor)
+    ):
+        return ex._max_workers  # not public API!
+    elif isinstance(ex, SequentialExecutor):
+        return 1
+    elif with_distributed and isinstance(ex, distributed.cfexecutor.ClientExecutor):
+        return sum(n for n in ex._client.ncores().values())
+    elif with_mpi4py and isinstance(ex, mpi4py.futures.MPIPoolExecutor):
+        ex.bootup()  # wait until all workers are up and running
+        return ex._pool.size  # not public API!
+    else:
+        raise TypeError(f"Cannot get number of cores for {ex.__class__}")
+
+
+# -- Runner definitions
+
+
 class BaseRunner(metaclass=abc.ABCMeta):
-    r"""Base class for runners that use `concurrent.futures.Executors`.
+    r"""Base class for runners that use `concurrent.futures.Executor`\'s.
 
     Parameters
     ----------
@@ -94,16 +180,24 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
     def __init__(
         self,
-        learner,
-        goal,
+        learner: BaseLearner,
+        goal: Callable,
         *,
-        executor=None,
-        ntasks=None,
-        log=False,
-        shutdown_executor=False,
-        retries=0,
-        raise_if_retries_exceeded=True,
-    ):
+        executor: Union[
+            (
+                *_ThirdPartyClient,
+                *_ThirdPartyExecutor,
+                concurrent.ProcessPoolExecutor,
+                concurrent.ThreadPoolExecutor,
+                SequentialExecutor,
+            )
+        ] = None,
+        ntasks: int = None,
+        log: bool = False,
+        shutdown_executor: bool = False,
+        retries: int = 0,
+        raise_if_retries_exceeded: bool = True,
+    ) -> None:
 
         self.executor = _ensure_executor(executor)
         self.goal = goal
@@ -117,7 +211,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
         self.shutdown_executor = shutdown_executor or (executor is None)
 
         self.learner = learner
-        self.log = [] if log else None
+        self.log: Optional[list] = [] if log else None
 
         # Timing
         self.start_time = time.time()
@@ -130,7 +224,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
         self.to_retry = {}
         self.tracebacks = {}
 
-    def _get_max_tasks(self):
+    def _get_max_tasks(self) -> int:
         return self._max_tasks or _get_ncores(self.executor)
 
     def _do_raise(self, e, x):
@@ -142,10 +236,10 @@ class BaseRunner(metaclass=abc.ABCMeta):
         ) from e
 
     @property
-    def do_log(self):
+    def do_log(self) -> bool:
         return self.log is not None
 
-    def _ask(self, n):
+    def _ask(self, n: int) -> Any:
         points = [
             p for p in self.to_retry.keys() if p not in self.pending_points.values()
         ][:n]
@@ -179,7 +273,14 @@ class BaseRunner(metaclass=abc.ABCMeta):
         t_total = self.elapsed_time()
         return (1 - t_function / t_total) * 100
 
-    def _process_futures(self, done_futs):
+    def _process_futures(
+        self,
+        done_futs: Union[
+            Set[Future],
+            Set[AsyncResult],  # XXX: AsyncResult might not be imported
+            Set[Task],
+        ],
+    ) -> None:
         for fut in done_futs:
             x = self.pending_points.pop(fut)
             try:
@@ -200,7 +301,13 @@ class BaseRunner(metaclass=abc.ABCMeta):
                     self.log.append(("tell", x, y))
                 self.learner.tell(x, y)
 
-    def _get_futures(self):
+    def _get_futures(
+        self,
+    ) -> Union[
+        List[Task],
+        List[Future],
+        List[AsyncResult],  # XXX: AsyncResult might not be imported
+    ]:
         # Launch tasks to replace the ones that completed
         # on the last iteration, making sure to fill workers
         # that have started since the last iteration.
@@ -221,7 +328,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
         futures = list(self.pending_points.keys())
         return futures
 
-    def _remove_unfinished(self):
+    def _remove_unfinished(self) -> List[Future]:
         # remove points with 'None' values from the learner
         self.learner.remove_unfinished()
         # cancel any outstanding tasks
@@ -230,7 +337,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
             fut.cancel()
         return remaining
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         if self.shutdown_executor:
             # XXX: temporary set wait=True for Python 3.7
             # see https://github.com/python-adaptive/adaptive/issues/156
@@ -318,16 +425,24 @@ class BlockingRunner(BaseRunner):
 
     def __init__(
         self,
-        learner,
-        goal,
+        learner: BaseLearner,
+        goal: Callable,
         *,
-        executor=None,
-        ntasks=None,
+        executor: Union[
+            (
+                *_ThirdPartyClient,
+                *_ThirdPartyExecutor,
+                concurrent.ProcessPoolExecutor,
+                concurrent.ThreadPoolExecutor,
+                SequentialExecutor,
+            )
+        ] = None,
+        ntasks: Optional[int] = None,
         log=False,
         shutdown_executor=False,
         retries=0,
         raise_if_retries_exceeded=True,
-    ):
+    ) -> None:
         if inspect.iscoroutinefunction(learner.function):
             raise ValueError(
                 "Coroutine functions can only be used " "with 'AsyncRunner'."
@@ -344,10 +459,10 @@ class BlockingRunner(BaseRunner):
         )
         self._run()
 
-    def _submit(self, x):
+    def _submit(self, x: Union[Tuple[float, ...], float, int]) -> Future:
         return self.executor.submit(self.learner.function, x)
 
-    def _run(self):
+    def _run(self) -> None:
         first_completed = concurrent.FIRST_COMPLETED
 
         if self._get_max_tasks() < 1:
@@ -445,17 +560,25 @@ class AsyncRunner(BaseRunner):
 
     def __init__(
         self,
-        learner,
-        goal=None,
+        learner: BaseLearner,
+        goal: Optional[Callable] = None,
         *,
-        executor=None,
-        ntasks=None,
-        log=False,
-        shutdown_executor=False,
+        executor: Union[
+            (
+                *_ThirdPartyClient,
+                *_ThirdPartyExecutor,
+                concurrent.ProcessPoolExecutor,
+                concurrent.ThreadPoolExecutor,
+                SequentialExecutor,
+            )
+        ] = None,
+        ntasks: Optional[int] = None,
+        log: bool = False,
+        shutdown_executor: bool = False,
         ioloop=None,
-        retries=0,
-        raise_if_retries_exceeded=True,
-    ):
+        retries: int = 0,
+        raise_if_retries_exceeded: bool = True,
+    ) -> None:
 
         if goal is None:
 
@@ -508,7 +631,9 @@ class AsyncRunner(BaseRunner):
                 "'adaptive.notebook_extension()'"
             )
 
-    def _submit(self, x):
+    def _submit(
+        self, x: Union[Tuple[int, int], int, Tuple[float, float], float]
+    ) -> Union[Task, Future]:
         ioloop = self.ioloop
         if inspect.iscoroutinefunction(self.learner.function):
             return ioloop.create_task(self.learner.function(x))
@@ -573,7 +698,7 @@ class AsyncRunner(BaseRunner):
         """
         return live_info(self, update_interval=update_interval)
 
-    async def _run(self):
+    async def _run(self) -> None:
         first_completed = asyncio.FIRST_COMPLETED
 
         if self._get_max_tasks() < 1:
@@ -592,7 +717,7 @@ class AsyncRunner(BaseRunner):
                 await asyncio.wait(remaining)
             self._cleanup()
 
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         """Return the total time elapsed since the runner
         was started."""
         if self.task.done():
@@ -605,7 +730,7 @@ class AsyncRunner(BaseRunner):
             end_time = time.time()
         return end_time - self.start_time
 
-    def start_periodic_saving(self, save_kwargs, interval):
+    def start_periodic_saving(self, save_kwargs: Dict[str, Any], interval: int):
         """Periodically save the learner's data.
 
         Parameters
@@ -637,7 +762,7 @@ class AsyncRunner(BaseRunner):
 Runner = AsyncRunner
 
 
-def simple(learner, goal):
+def simple(learner: BaseLearner, goal: Callable) -> None:
     """Run the learner until the goal is reached.
 
     Requests a single point from the learner, evaluates
@@ -663,7 +788,7 @@ def simple(learner, goal):
             learner.tell(x, y)
 
 
-def replay_log(learner, log):
+def replay_log(learner: BaseLearner, log) -> None:
     """Apply a sequence of method calls to a learner.
 
     This is useful for debugging runners.
@@ -682,7 +807,7 @@ def replay_log(learner, log):
 # --- Useful runner goals
 
 
-def stop_after(*, seconds=0, minutes=0, hours=0):
+def stop_after(*, seconds=0, minutes=0, hours=0) -> Callable:
     """Stop a runner after a specified time.
 
     For example, to specify a runner that should stop after
@@ -714,63 +839,3 @@ def stop_after(*, seconds=0, minutes=0, hours=0):
     """
     stop_time = time.time() + seconds + 60 * minutes + 3600 * hours
     return lambda _: time.time() > stop_time
-
-
-# -- Internal executor-related, things
-
-
-class SequentialExecutor(concurrent.Executor):
-    """A trivial executor that runs functions synchronously.
-
-    This executor is mainly for testing.
-    """
-
-    def submit(self, fn, *args, **kwargs):
-        fut = concurrent.Future()
-        try:
-            fut.set_result(fn(*args, **kwargs))
-        except Exception as e:
-            fut.set_exception(e)
-        return fut
-
-    def map(self, fn, *iterable, timeout=None, chunksize=1):
-        return map(fn, iterable)
-
-    def shutdown(self, wait=True):
-        pass
-
-
-def _ensure_executor(executor):
-    if executor is None:
-        executor = concurrent.ProcessPoolExecutor()
-
-    if isinstance(executor, concurrent.Executor):
-        return executor
-    elif with_ipyparallel and isinstance(executor, ipyparallel.Client):
-        return executor.executor()
-    elif with_distributed and isinstance(executor, distributed.Client):
-        return executor.get_executor()
-    else:
-        raise TypeError(
-            "Only a concurrent.futures.Executor, distributed.Client,"
-            " or ipyparallel.Client can be used."
-        )
-
-
-def _get_ncores(ex):
-    """Return the maximum  number of cores that an executor can use."""
-    if with_ipyparallel and isinstance(ex, ipyparallel.client.view.ViewExecutor):
-        return len(ex.view)
-    elif isinstance(
-        ex, (concurrent.ProcessPoolExecutor, concurrent.ThreadPoolExecutor)
-    ):
-        return ex._max_workers  # not public API!
-    elif isinstance(ex, SequentialExecutor):
-        return 1
-    elif with_distributed and isinstance(ex, distributed.cfexecutor.ClientExecutor):
-        return sum(n for n in ex._client.ncores().values())
-    elif with_mpi4py and isinstance(ex, mpi4py.futures.MPIPoolExecutor):
-        ex.bootup()  # wait until all workers are up and running
-        return ex._pool.size  # not public API!
-    else:
-        raise TypeError(f"Cannot get number of cores for {ex.__class__}")
