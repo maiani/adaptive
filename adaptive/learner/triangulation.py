@@ -26,7 +26,7 @@ def fast_norm(v: Union[Tuple[float, ...], np.ndarray]) -> float:
 
 def fast_2d_point_in_simplex(
     point: Point, simplex: SimplexPoints, eps: float = 1e-8
-) -> Union[bool, np.bool_]:
+) -> bool:
     (p0x, p0y), (p1x, p1y), (p2x, p2y) = simplex
     px, py = point
 
