@@ -371,7 +371,7 @@ class BalancingLearner(BaseLearner):
         f,
         learner_type: BaseLearner,
         learner_kwargs: Dict[str, Any],
-        combos: Dict[str, Iterable[Any]],
+        combos: Dict[str, Sequence[Any]],
     ) -> "BalancingLearner":
         """Create a `BalancingLearner` with learners of all combinations of
         named variables’ values. The `cdims` will be set correctly, so calling

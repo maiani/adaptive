@@ -237,10 +237,10 @@ class BaseRunner(metaclass=abc.ABCMeta):
         # Error handling attributes
         self.retries = retries
         self.raise_if_retries_exceeded = raise_if_retries_exceeded
-        self._to_retry = {}
-        self._tracebacks = {}
+        self._to_retry: Dict[int, int] = {}
+        self._tracebacks: Dict[int, str] = {}
 
-        self._id_to_point = {}
+        self._id_to_point: Dict[int, Any] = {}
         self._next_id = functools.partial(
             next, itertools.count()
         )  # some unique id to be associated with each point
@@ -248,9 +248,9 @@ class BaseRunner(metaclass=abc.ABCMeta):
     def _get_max_tasks(self) -> int:
         return self._max_tasks or _get_ncores(self.executor)
 
-    def _do_raise(self, e, i):
-        tb = self._tracebacks[i]
-        x = self._id_to_point[i]
+    def _do_raise(self, e, pid):
+        tb = self._tracebacks[pid]
+        x = self._id_to_point[pid]
         raise RuntimeError(
             "An error occured while evaluating "
             f'"learner.function({x})". '
@@ -379,7 +379,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
         self.end_time = time.time()
 
     @property
-    def failed(self):
+    def failed(self) -> Set[Any]:
         """Set of points that failed ``runner.retries`` times."""
         return set(self._tracebacks) - set(self._to_retry)
 
@@ -398,15 +398,15 @@ class BaseRunner(metaclass=abc.ABCMeta):
         pass
 
     @property
-    def tracebacks(self):
+    def tracebacks(self) -> List[Tuple[int, str]]:
         return [(self._id_to_point[pid], tb) for pid, tb in self._tracebacks.items()]
 
     @property
-    def to_retry(self):
+    def to_retry(self) -> List[Tuple[int, int]]:
         return [(self._id_to_point[pid], n) for pid, n in self._to_retry.items()]
 
     @property
-    def pending_points(self):
+    def pending_points(self) -> List[Tuple[Future, Any]]:
         return [
             (fut, self._id_to_point[pid]) for fut, pid in self._pending_tasks.items()
         ]

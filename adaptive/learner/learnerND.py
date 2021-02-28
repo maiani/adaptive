@@ -383,7 +383,7 @@ class LearnerND(BaseLearner):
         return len(self.data)
 
     @property
-    def vdim(self):
+    def vdim(self) -> int:
         """Length of the output of ``learner.function``.
         If the output is unsized (when it's a scalar)
         then `vdim = 1`.
@@ -399,10 +399,10 @@ class LearnerND(BaseLearner):
         return self._vdim if self._vdim is not None else 1
 
     @property
-    def bounds_are_done(self):
+    def bounds_are_done(self) -> bool:
         return all(p in self.data for p in self._bounds_points)
 
-    def _ip(self):
+    def _ip(self) -> interpolate.LinearNDInterpolator:
         """A `scipy.interpolate.LinearNDInterpolator` instance
         containing the learner's data."""
         # XXX: take our own triangulation into account when generating the _ip
@@ -427,7 +427,7 @@ class LearnerND(BaseLearner):
         return self._tri
 
     @property
-    def values(self):
+    def values(self) -> np.ndarray:
         """Get the values from `data` as a numpy array."""
         return np.array(list(self.data.values()), dtype=float)
 

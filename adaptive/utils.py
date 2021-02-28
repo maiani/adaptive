@@ -5,12 +5,12 @@ import os
 import pickle
 from contextlib import contextmanager
 from itertools import product
-from typing import Any, Callable, Dict, Iterable, Iterator
+from typing import Any, Callable, Dict, Iterator, Sequence
 
 from atomicwrites import AtomicWriter
 
 
-def named_product(**items: Dict[str, Iterable[Any]]):
+def named_product(**items: Dict[str, Sequence[Any]]):
     names = items.keys()
     vals = items.values()
     return [dict(zip(names, res)) for res in product(*vals)]
