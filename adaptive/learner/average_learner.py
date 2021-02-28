@@ -35,7 +35,7 @@ class AverageLearner(BaseLearner):
 
     def __init__(
         self,
-        function: Callable,
+        function: Callable[[BaseLearner], float],
         atol: Optional[float] = None,
         rtol: Optional[float] = None,
         min_npoints: int = 2,

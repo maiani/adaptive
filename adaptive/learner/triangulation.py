@@ -87,7 +87,7 @@ def fast_2d_circumcircle(points: Sequence[Point]) -> Tuple[Tuple[float, float], 
     tuple
         (center point : tuple(float), radius: float)
     """
-    points = array(points)
+    points = array(points, dtype=float)
     # transform to relative coordinates
     pts = points[1:] - points[0]
 
@@ -113,7 +113,7 @@ def fast_2d_circumcircle(points: Sequence[Point]) -> Tuple[Tuple[float, float], 
 def fast_3d_circumcircle(
     points: Sequence[Point],
 ) -> Tuple[Tuple[float, float, float], float]:
-    """Compute the center and radius of the circumscribed shpere of a simplex.
+    """Compute the center and radius of the circumscribed sphere of a simplex.
 
     Parameters
     ----------
