@@ -118,7 +118,7 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
         pass
 
     @abc.abstractmethod
-    def loss(self, real=True):
+    def loss(self, real: bool = True):
         """Return the loss for the current state of the learner.
 
         Parameters
@@ -130,7 +130,7 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
         """
 
     @abc.abstractmethod
-    def ask(self, n, tell_pending=True):
+    def ask(self, n: int, tell_pending: bool = True):
         """Choose the next 'n' points to evaluate.
 
         Parameters

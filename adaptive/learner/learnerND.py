@@ -31,7 +31,7 @@ def to_list(inp: float) -> List[float]:
     return [inp]
 
 
-def volume(simplex: List[Tuple[float, float]], ys: None = None) -> float:
+def volume(simplex: Simplex, ys: None = None) -> float:
     # Notice the parameter ys is there so you can use this volume method as
     # as loss function
     matrix = np.subtract(simplex[:-1], simplex[-1], dtype=float)
@@ -69,7 +69,7 @@ def uniform_loss(simplex: np.ndarray, values: np.ndarray, value_scale: float) ->
     return volume(simplex)
 
 
-def std_loss(simplex: np.ndarray, values: np.ndarray, value_scale: float) -> np.ndarray:
+def std_loss(simplex: Simplex, values: np.ndarray, value_scale: float) -> np.ndarray:
     """
     Computes the loss of the simplex based on the standard deviation.
 

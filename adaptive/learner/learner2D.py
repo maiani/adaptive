@@ -598,7 +598,9 @@ class Learner2D(BaseLearner):
 
         return points_new, losses_new
 
-    def ask(self, n: int, tell_pending: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def ask(
+        self, n: int, tell_pending: bool = True
+    ) -> Tuple[List[Tuple[float, float]], List[float]]:
         # Even if tell_pending is False we add the point such that _fill_stack
         # will return new points, later we remove these points if needed.
         points = list(self._stack.keys())

@@ -3,9 +3,9 @@ import functools
 import gzip
 import os
 import pickle
-from contextlib import contextmanager
+from contextlib import _GeneratorContextManager, contextmanager
 from itertools import product
-from typing import Any, Callable, Dict, Iterator, Sequence
+from typing import Any, Callable, Dict, Sequence
 
 from atomicwrites import AtomicWriter
 
@@ -17,7 +17,7 @@ def named_product(**items: Dict[str, Sequence[Any]]):
 
 
 @contextmanager
-def restore(*learners) -> Iterator[None]:
+def restore(*learners) -> _GeneratorContextManager:
     states = [learner.__getstate__() for learner in learners]
     try:
         yield
