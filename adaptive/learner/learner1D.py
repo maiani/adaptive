@@ -2,7 +2,18 @@ import collections.abc
 import itertools
 import math
 from copy import deepcopy
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from sortedcollections.recipes import ItemSortedDict
@@ -64,7 +75,11 @@ def abs_min_log_loss(xs, ys):
 
 @uses_nth_neighbors(1)
 def triangle_loss(
-    xs: Sequence[float], ys: Union[Iterable[float], Iterable[Iterable[float]]]
+    xs: Sequence[Union[float, None]],
+    ys: Union[
+        Iterable[Union[float, None]],
+        Iterable[Union[Iterable[float], None]],
+    ],
 ) -> float:
     xs = [x for x in xs if x is not None]
     ys = [y for y in ys if y is not None]
@@ -399,7 +414,7 @@ class Learner1D(BaseLearner):
                 self._bbox[1][1] = max(self._bbox[1][1], y)
                 self._scale[1] = self._bbox[1][1] - self._bbox[1][0]
 
-    def tell(self, x: float, y: Union[float, np.ndarray]) -> None:
+    def tell(self, x: float, y: Union[float, Sequence[float], np.ndarray]) -> None:
         if x in self.data:
             # The point is already evaluated before
             return
@@ -442,7 +457,7 @@ class Learner1D(BaseLearner):
         self._update_neighbors(x, self.neighbors_combined)
         self._update_losses(x, real=False)
 
-    def tell_many(self, xs: List[float], ys: List[Any], *, force=False) -> None:
+    def tell_many(self, xs: Sequence[float], ys: Sequence[Any], *, force=False) -> None:
         if not force and not (len(xs) > 0.5 * len(self.data) and len(xs) > 2):
             # Only run this more efficient method if there are
             # at least 2 points and the amount of points added are
@@ -602,7 +617,7 @@ class Learner1D(BaseLearner):
         loss = mapping[ival]
         return finite_loss(ival, loss, self._scale[0])
 
-    def plot(self, *, scatter_or_line="scatter"):
+    def plot(self, *, scatter_or_line: Literal["scatter", "line"] = "scatter"):
         """Returns a plot of the evaluated data.
 
         Parameters
