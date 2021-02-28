@@ -215,7 +215,7 @@ class BalancingLearner(BaseLearner):
         selected = []  # tuples ((learner_index, point), loss_improvement)
         total_points = [l.npoints + len(l.pending_points) for l in self.learners]
         for _ in range(n):
-            index = np.argmin(total_points)
+            index = int(np.argmin(total_points))
             # Take the points from the cache
             if index not in self._ask_cache:
                 self._ask_cache[index] = self.learners[index].ask(n=1)
