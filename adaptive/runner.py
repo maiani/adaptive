@@ -1,15 +1,17 @@
 import abc
 import asyncio
 import concurrent.futures as concurrent
+import functools
 import inspect
+import itertools
 import pickle
-import sys
 import time
 import traceback
 import warnings
-from _asyncio import Future, Task
 from contextlib import suppress
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+
+from _asyncio import Future, Task
 
 from adaptive.learner.base_learner import BaseLearner
 from adaptive.notebook_integration import in_ipynb, live_info, live_plot
@@ -43,6 +45,14 @@ try:
     _ThirdPartyExecutor.append(mpi4py.futures.MPIPoolExecutor)
 except ModuleNotFoundError:
     with_mpi4py = False
+
+try:
+    import loky
+
+    with_loky = True
+    _ThirdPartyExecutor.append(loky.reusable_executor._ReusablePoolExecutor)
+except ModuleNotFoundError:
+    with_loky = False
 
 with suppress(ModuleNotFoundError):
     import uvloop
@@ -102,13 +112,15 @@ def _get_ncores(
             SequentialExecutor,
         )
     ]
-) -> int:
+):
     """Return the maximum  number of cores that an executor can use."""
     if with_ipyparallel and isinstance(ex, ipyparallel.client.view.ViewExecutor):
         return len(ex.view)
     elif isinstance(
         ex, (concurrent.ProcessPoolExecutor, concurrent.ThreadPoolExecutor)
     ):
+        return ex._max_workers  # not public API!
+    elif with_loky and isinstance(ex, loky.reusable_executor._ReusablePoolExecutor):
         return ex._max_workers  # not public API!
     elif isinstance(ex, SequentialExecutor):
         return 1
@@ -122,6 +134,9 @@ def _get_ncores(
 
 
 # -- Runner definitions
+_default_executor = (
+    loky.get_reusable_executor if with_loky else concurrent.ProcessPoolExecutor
+)
 
 
 class BaseRunner(metaclass=abc.ABCMeta):
@@ -135,7 +150,8 @@ class BaseRunner(metaclass=abc.ABCMeta):
         the learner as its sole argument, and return True when we should
         stop requesting more points.
     executor : `concurrent.futures.Executor`, `distributed.Client`,\
-               `mpi4py.futures.MPIPoolExecutor`, or `ipyparallel.Client`, optional
+               `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
+               `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
         If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
     ntasks : int, optional
@@ -161,14 +177,14 @@ class BaseRunner(metaclass=abc.ABCMeta):
     log : list or None
         Record of the method calls made to the learner, in the format
         ``(method_name, *args)``.
-    to_retry : dict
-        Mapping of ``{point: n_fails, ...}``. When a point has failed
+    to_retry : list of tuples
+        List of ``(point, n_fails)``. When a point has failed
         ``runner.retries`` times it is removed but will be present
         in ``runner.tracebacks``.
-    tracebacks : dict
-        A mapping of point to the traceback if that point failed.
-    pending_points : dict
-        A mapping of `~concurrent.futures.Future`\s to points.
+    tracebacks : list of tuples
+        List of of ``(point, tb)`` for points that failed.
+    pending_points : list of tuples
+        A list of tuples with ``(concurrent.futures.Future, point)``.
 
     Methods
     -------
@@ -204,7 +220,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
         self._max_tasks = ntasks
 
-        self.pending_points = {}
+        self._pending_tasks = {}  # mapping from concurrent.futures.Future → point id
 
         # if we instantiate our own executor, then we are also responsible
         # for calling 'shutdown'
@@ -221,14 +237,20 @@ class BaseRunner(metaclass=abc.ABCMeta):
         # Error handling attributes
         self.retries = retries
         self.raise_if_retries_exceeded = raise_if_retries_exceeded
-        self.to_retry = {}
-        self.tracebacks = {}
+        self._to_retry = {}
+        self._tracebacks = {}
+
+        self._id_to_point = {}
+        self._next_id = functools.partial(
+            next, itertools.count()
+        )  # some unique id to be associated with each point
 
     def _get_max_tasks(self) -> int:
         return self._max_tasks or _get_ncores(self.executor)
 
-    def _do_raise(self, e, x):
-        tb = self.tracebacks[x]
+    def _do_raise(self, e, i):
+        tb = self._tracebacks[i]
+        x = self._id_to_point[i]
         raise RuntimeError(
             "An error occured while evaluating "
             f'"learner.function({x})". '
@@ -239,16 +261,22 @@ class BaseRunner(metaclass=abc.ABCMeta):
     def do_log(self) -> bool:
         return self.log is not None
 
-    def _ask(self, n: int) -> Any:
-        points = [
-            p for p in self.to_retry.keys() if p not in self.pending_points.values()
-        ][:n]
-        loss_improvements = len(points) * [float("inf")]
-        if len(points) < n:
-            new_points, new_losses = self.learner.ask(n - len(points))
-            points += new_points
+    def _ask(self, n: int) -> Tuple[List[int], List[float]]:
+        pending_ids = self._pending_tasks.values()
+        # using generator here because we only need until `n`
+        pids_gen = (pid for pid in self._to_retry.keys() if pid not in pending_ids)
+        pids = list(itertools.islice(pids_gen, n))
+
+        loss_improvements = len(pids) * [float("inf")]
+
+        if len(pids) < n:
+            new_points, new_losses = self.learner.ask(n - len(pids))
             loss_improvements += new_losses
-        return points, loss_improvements
+            for point in new_points:
+                pid = self._next_id()
+                self._id_to_point[pid] = point
+                pids.append(pid)
+        return pids, loss_improvements
 
     def overhead(self):
         """Overhead of using Adaptive and the executor in percent.
@@ -282,21 +310,22 @@ class BaseRunner(metaclass=abc.ABCMeta):
         ],
     ) -> None:
         for fut in done_futs:
-            x = self.pending_points.pop(fut)
+            pid = self._pending_tasks.pop(fut)
             try:
                 y = fut.result()
                 t = time.time() - fut.start_time  # total execution time
             except Exception as e:
-                self.tracebacks[x] = traceback.format_exc()
-                self.to_retry[x] = self.to_retry.get(x, 0) + 1
-                if self.to_retry[x] > self.retries:
-                    self.to_retry.pop(x)
+                self._tracebacks[pid] = traceback.format_exc()
+                self._to_retry[pid] = self._to_retry.get(pid, 0) + 1
+                if self._to_retry[pid] > self.retries:
+                    self._to_retry.pop(pid)
                     if self.raise_if_retries_exceeded:
-                        self._do_raise(e, x)
+                        self._do_raise(e, pid)
             else:
                 self._elapsed_function_time += t / self._get_max_tasks()
-                self.to_retry.pop(x, None)
-                self.tracebacks.pop(x, None)
+                self._to_retry.pop(pid, None)
+                self._tracebacks.pop(pid, None)
+                x = self._id_to_point.pop(pid)
                 if self.do_log:
                     self.log.append(("tell", x, y))
                 self.learner.tell(x, y)
@@ -311,44 +340,48 @@ class BaseRunner(metaclass=abc.ABCMeta):
         # Launch tasks to replace the ones that completed
         # on the last iteration, making sure to fill workers
         # that have started since the last iteration.
-        n_new_tasks = max(0, self._get_max_tasks() - len(self.pending_points))
+        n_new_tasks = max(0, self._get_max_tasks() - len(self._pending_tasks))
 
         if self.do_log:
             self.log.append(("ask", n_new_tasks))
 
-        points, _ = self._ask(n_new_tasks)
+        pids, _ = self._ask(n_new_tasks)
 
-        for x in points:
+        for pid in pids:
             start_time = time.time()  # so we can measure execution time
-            fut = self._submit(x)
+            point = self._id_to_point[pid]
+            fut = self._submit(point)
             fut.start_time = start_time
-            self.pending_points[fut] = x
+            self._pending_tasks[fut] = pid
 
         # Collect and results and add them to the learner
-        futures = list(self.pending_points.keys())
+        futures = list(self._pending_tasks.keys())
         return futures
 
     def _remove_unfinished(self) -> List[Future]:
         # remove points with 'None' values from the learner
         self.learner.remove_unfinished()
         # cancel any outstanding tasks
-        remaining = list(self.pending_points.keys())
+        remaining = list(self._pending_tasks.keys())
         for fut in remaining:
             fut.cancel()
         return remaining
 
     def _cleanup(self) -> None:
         if self.shutdown_executor:
-            # XXX: temporary set wait=True for Python 3.7
+            # XXX: temporary set wait=True because of a bug with Python ≥3.7
+            # and loky in any Python version.
             # see https://github.com/python-adaptive/adaptive/issues/156
             # and https://github.com/python-adaptive/adaptive/pull/164
-            self.executor.shutdown(wait=True if sys.version_info >= (3, 7) else False)
+            # and https://bugs.python.org/issue36281
+            # and https://github.com/joblib/loky/issues/241
+            self.executor.shutdown(wait=True)
         self.end_time = time.time()
 
     @property
     def failed(self):
         """Set of points that failed ``runner.retries`` times."""
-        return set(self.tracebacks) - set(self.to_retry)
+        return set(self._tracebacks) - set(self._to_retry)
 
     @abc.abstractmethod
     def elapsed_time(self):
@@ -364,6 +397,20 @@ class BaseRunner(metaclass=abc.ABCMeta):
         """Is called in `_get_futures`."""
         pass
 
+    @property
+    def tracebacks(self):
+        return [(self._id_to_point[pid], tb) for pid, tb in self._tracebacks.items()]
+
+    @property
+    def to_retry(self):
+        return [(self._id_to_point[pid], n) for pid, n in self._to_retry.items()]
+
+    @property
+    def pending_points(self):
+        return [
+            (fut, self._id_to_point[pid]) for fut, pid in self._pending_tasks.items()
+        ]
+
 
 class BlockingRunner(BaseRunner):
     """Run a learner synchronously in an executor.
@@ -376,7 +423,8 @@ class BlockingRunner(BaseRunner):
         the learner as its sole argument, and return True when we should
         stop requesting more points.
     executor : `concurrent.futures.Executor`, `distributed.Client`,\
-               `mpi4py.futures.MPIPoolExecutor`, or `ipyparallel.Client`, optional
+               `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
+               `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
         If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
     ntasks : int, optional
@@ -402,14 +450,14 @@ class BlockingRunner(BaseRunner):
     log : list or None
         Record of the method calls made to the learner, in the format
         ``(method_name, *args)``.
-    to_retry : dict
-        Mapping of ``{point: n_fails, ...}``. When a point has failed
+    to_retry : list of tuples
+        List of ``(point, n_fails)``. When a point has failed
         ``runner.retries`` times it is removed but will be present
         in ``runner.tracebacks``.
-    tracebacks : dict
-        A mapping of point to the traceback if that point failed.
-    pending_points : dict
-        A mapping of `~concurrent.futures.Future`\to points.
+    tracebacks : list of tuples
+        List of of ``(point, tb)`` for points that failed.
+    pending_points : list of tuples
+        A list of tuples with ``(concurrent.futures.Future, point)``.
 
     Methods
     -------
@@ -444,9 +492,7 @@ class BlockingRunner(BaseRunner):
         raise_if_retries_exceeded=True,
     ) -> None:
         if inspect.iscoroutinefunction(learner.function):
-            raise ValueError(
-                "Coroutine functions can only be used " "with 'AsyncRunner'."
-            )
+            raise ValueError("Coroutine functions can only be used with 'AsyncRunner'.")
         super().__init__(
             learner,
             goal,
@@ -501,7 +547,8 @@ class AsyncRunner(BaseRunner):
         stop requesting more points. If not provided, the runner will run
         forever, or until ``self.task.cancel()`` is called.
     executor : `concurrent.futures.Executor`, `distributed.Client`,\
-               `mpi4py.futures.MPIPoolExecutor`, or `ipyparallel.Client`, optional
+               `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
+               `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
         If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
     ntasks : int, optional
@@ -532,14 +579,14 @@ class AsyncRunner(BaseRunner):
     log : list or None
         Record of the method calls made to the learner, in the format
         ``(method_name, *args)``.
-    to_retry : dict
-        Mapping of ``{point: n_fails, ...}``. When a point has failed
+    to_retry : list of tuples
+        List of ``(point, n_fails)``. When a point has failed
         ``runner.retries`` times it is removed but will be present
         in ``runner.tracebacks``.
-    tracebacks : dict
-        A mapping of point to the traceback if that point failed.
-    pending_points : dict
-        A mapping of `~concurrent.futures.Future`\s to points.
+    tracebacks : list of tuples
+        List of of ``(point, tb)`` for points that failed.
+    pending_points : list of tuples
+        A list of tuples with ``(concurrent.futures.Future, point)``.
 
     Methods
     -------
@@ -585,7 +632,11 @@ class AsyncRunner(BaseRunner):
             def goal(_):
                 return False
 
-        if executor is None and not inspect.iscoroutinefunction(learner.function):
+        if (
+            executor is None
+            and _default_executor is concurrent.ProcessPoolExecutor
+            and not inspect.iscoroutinefunction(learner.function)
+        ):
             try:
                 pickle.dumps(learner.function)
             except pickle.PicklingError:
@@ -617,7 +668,7 @@ class AsyncRunner(BaseRunner):
         if inspect.iscoroutinefunction(learner.function):
             if executor:  # user-provided argument
                 raise RuntimeError(
-                    "Cannot use an executor when learning an " "async function."
+                    "Cannot use an executor when learning an async function."
                 )
             self.executor.shutdown()  # Make sure we don't shoot ourselves later
 

@@ -87,16 +87,6 @@ class SequenceLearner(BaseLearner):
 
         return points, loss_improvements
 
-    def _get_data(self) -> SortedDict:
-        return self.data
-
-    def _set_data(self, data: SortedDict) -> None:
-        if data:
-            indices, values = zip(*data.items())
-            # the points aren't used by tell, so we can safely pass None
-            points = [(i, None) for i in indices]
-            self.tell_many(points, values)
-
     def loss(self, real: bool = True) -> float:
         if not (self._to_do_indices or self.pending_points):
             return 0
@@ -132,3 +122,25 @@ class SequenceLearner(BaseLearner):
     @property
     def npoints(self) -> int:
         return len(self.data)
+
+    def _get_data(self) -> SortedDict:
+        return self.data
+
+    def _set_data(self, data: SortedDict) -> None:
+        if data:
+            indices, values = zip(*data.items())
+            # the points aren't used by tell, so we can safely pass None
+            points = [(i, None) for i in indices]
+            self.tell_many(points, values)
+
+    def __getstate__(self):
+        return (
+            self._original_function,
+            self.sequence,
+            self._get_data(),
+        )
+
+    def __setstate__(self, state):
+        function, sequence, data = state
+        self.__init__(function, sequence)
+        self._set_data(data)

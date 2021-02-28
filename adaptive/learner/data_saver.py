@@ -46,7 +46,9 @@ class DataSaver:
     def tell_pending(self, x):
         self.learner.tell_pending(x)
 
-    def _get_data(self,) -> Tuple[Any, OrderedDict]:
+    def _get_data(
+        self,
+    ) -> Tuple[Any, OrderedDict]:
         return self.learner._get_data(), self.extra_data
 
     def _set_data(
@@ -59,6 +61,18 @@ class DataSaver:
     ) -> None:
         learner_data, self.extra_data = data
         self.learner._set_data(learner_data)
+
+    def __getstate__(self):
+        return (
+            self.learner,
+            self.arg_picker,
+            self.extra_data,
+        )
+
+    def __setstate__(self, state):
+        learner, arg_picker, extra_data = state
+        self.__init__(learner, arg_picker)
+        self.extra_data = extra_data
 
     @copy_docstring_from(BaseLearner.save)
     def save(self, fname, compress=True):

@@ -15,6 +15,7 @@ from adaptive.runner import (
     stop_after,
     with_distributed,
     with_ipyparallel,
+    with_loky,
 )
 
 
@@ -87,6 +88,13 @@ def ipyparallel_executor():
         raise RuntimeError("Could not stop ipcluster")
 
 
+@pytest.fixture(scope="session")
+def loky_executor():
+    import loky
+
+    return loky.get_reusable_executor()
+
+
 def linear(x):
     return x
 
@@ -110,7 +118,6 @@ def test_stop_after_goal():
 
 
 @pytest.mark.skipif(not with_ipyparallel, reason="IPyparallel is not installed")
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason="XXX: seems to always fail")
 def test_ipyparallel_executor(ipyparallel_executor):
     learner = Learner1D(linear, (-1, 1))
     BlockingRunner(learner, trivial_goal, executor=ipyparallel_executor)
@@ -121,6 +128,7 @@ def test_ipyparallel_executor(ipyparallel_executor):
 @pytest.mark.timeout(60)
 @pytest.mark.skipif(not with_distributed, reason="dask.distributed is not installed")
 @pytest.mark.skipif(os.name == "nt", reason="XXX: seems to always fail")
+@pytest.mark.skipif(sys.platform == "darwin", reason="XXX: intermittently fails")
 def test_distributed_executor():
     from distributed import Client
 
@@ -129,3 +137,18 @@ def test_distributed_executor():
     BlockingRunner(learner, trivial_goal, executor=client)
     client.shutdown()
     assert learner.npoints > 0
+
+
+@pytest.mark.skipif(not with_loky, reason="loky not installed")
+def test_loky_executor(loky_executor):
+    learner = Learner1D(lambda x: x, (-1, 1))
+    BlockingRunner(
+        learner, trivial_goal, executor=loky_executor, shutdown_executor=True
+    )
+    assert learner.npoints > 0
+
+
+def test_default_executor():
+    learner = Learner1D(linear, (-1, 1))
+    runner = AsyncRunner(learner, goal=lambda l: l.npoints > 10)
+    asyncio.get_event_loop().run_until_complete(runner.task)

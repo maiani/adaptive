@@ -31,7 +31,7 @@ def notebook_extension(*, _inline_js=True):
             _holoviews_enabled = True
     except ModuleNotFoundError:
         warnings.warn(
-            "holoviews is not installed; plotting " "is disabled.", RuntimeWarning
+            "holoviews is not installed; plotting is disabled.", RuntimeWarning
         )
 
     # Load ipywidgets
@@ -42,7 +42,7 @@ def notebook_extension(*, _inline_js=True):
             _ipywidgets_enabled = True
     except ModuleNotFoundError:
         warnings.warn(
-            "ipywidgets is not installed; live_info " "is disabled.", RuntimeWarning
+            "ipywidgets is not installed; live_info is disabled.", RuntimeWarning
         )
 
     # Enable asyncio integration
@@ -64,8 +64,8 @@ def ensure_plotly():
         import plotly
 
         if not _plotly_enabled:
-            import plotly.graph_objs
             import plotly.figure_factory
+            import plotly.graph_objs
             import plotly.offline
 
             # This injects javascript and should happen only once

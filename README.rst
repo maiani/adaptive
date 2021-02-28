@@ -55,11 +55,29 @@ In addition to the learners, ``adaptive`` also provides primitives for
 running the sampling across several cores and even several machines,
 with built-in support for
 `concurrent.futures <https://docs.python.org/3/library/concurrent.futures.html>`_,
+`mpi4py <https://mpi4py.readthedocs.io/en/stable/mpi4py.futures.html>`_,
+`loky <https://loky.readthedocs.io/en/stable/>`_,
 `ipyparallel <https://ipyparallel.readthedocs.io/en/latest/>`_ and
 `distributed <https://distributed.readthedocs.io/en/latest/>`_.
 
 Examples
 --------
+
+Adaptively learning a 1D function (the `gif` below) and live-plotting the process in a Jupyter notebook is as easy as
+
+.. code:: python
+
+    from adaptive import notebook_extension, Runner, Learner1D
+    notebook_extension()
+
+    def peak(x, a=0.01):
+        return x + a**2 / (a**2 + x**2)
+
+    learner = Learner1D(peak, bounds=(-1, 1))
+    runner = Runner(learner, goal=lambda l: l.loss() < 0.01)
+    runner.live_info()
+    runner.live_plot()
+
 
 .. raw:: html
 
@@ -88,6 +106,13 @@ The recommended way to install adaptive is using ``conda``:
 
 The ``[notebook]`` above will also install the optional dependencies for
 running ``adaptive`` inside a Jupyter notebook.
+
+To use Adaptive in Jupyterlab, you need to install the following labextensions.
+
+.. code:: bash
+
+    jupyter labextension install @jupyter-widgets/jupyterlab-manager
+    jupyter labextension install @pyviz/jupyterlab_pyviz
 
 Development
 -----------

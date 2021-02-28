@@ -51,9 +51,9 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
-    "jupyter_sphinx.execute",
+    "jupyter_sphinx",
     "sphinx_fontawesome",
-    "m2r",
+    "m2r2",
 ]
 
 source_parsers = {}
@@ -139,26 +139,15 @@ intersphinx_mapping = {
     "holoviews": ("https://holoviews.org/", None),
     "ipyparallel": ("https://ipyparallel.readthedocs.io/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference", None),
+    "loky": ("https://loky.readthedocs.io/en/stable/", None),
 }
 
-
-def get_holoviews_js_css():
-    from holoviews.plotting import Renderer
-
-    dependencies = {**Renderer.core_dependencies, **Renderer.extra_dependencies}
-    required = ["jQueryUI"]  # require, jQuery, and underscore are added by sphinx
-    js = [url for name in required for url in dependencies[name].get("js", [])]
-    css = [url for name in required for url in dependencies[name].get("css", [])]
-    return js, css
-
-
-js, css = get_holoviews_js_css()
-html_context = {"holoviews_js_files": js}  # used in source/_templates/layout.html
-
+html_js_files = [
+    "https://cdn.bokeh.org/bokeh/release/bokeh-2.2.1.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.2.1.min.js",
+]
 html_logo = "logo_docs.png"
 
 
 def setup(app):
-    for url in css:
-        app.add_stylesheet(url)
-    app.add_stylesheet("custom.css")  # For the `live_info` widget
+    app.add_css_file("custom.css")  # For the `live_info` widget

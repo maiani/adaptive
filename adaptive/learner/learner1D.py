@@ -55,6 +55,13 @@ def default_loss(
         return np.hypot(dx, dy)
 
 
+@uses_nth_neighbors(0)
+def abs_min_log_loss(xs, ys):
+    """Calculate loss of a single interval that prioritizes the absolute minimum."""
+    ys = [np.log(np.abs(y).min()) for y in ys]
+    return default_loss(xs, ys)
+
+
 @uses_nth_neighbors(1)
 def triangle_loss(
     xs: Sequence[float], ys: Union[Iterable[float], Iterable[Iterable[float]]]
@@ -641,6 +648,23 @@ class Learner1D(BaseLearner):
     def _set_data(self, data: Dict[float, float]) -> None:
         if data:
             self.tell_many(*zip(*data.items()))
+
+    def __getstate__(self):
+        return (
+            self.function,
+            self.bounds,
+            self.loss_per_interval,
+            dict(self.losses),  # SortedDict cannot be pickled
+            dict(self.losses_combined),  # ItemSortedDict cannot be pickled
+            self._get_data(),
+        )
+
+    def __setstate__(self, state):
+        function, bounds, loss_per_interval, losses, losses_combined, data = state
+        self.__init__(function, bounds, loss_per_interval)
+        self._set_data(data)
+        self.losses.update(losses)
+        self.losses_combined.update(losses_combined)
 
 
 def loss_manager(x_scale: float) -> ItemSortedDict:

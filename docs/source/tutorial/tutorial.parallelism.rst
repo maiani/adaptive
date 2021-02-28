@@ -65,27 +65,31 @@ For example, you create the following file called ``run_learner.py``:
 
     from mpi4py.futures import MPIPoolExecutor
 
-    learner = adaptive.Learner1D(f, bounds=(-1, 1))
+    # use the idiom below, see the warning at
+    # https://mpi4py.readthedocs.io/en/stable/mpi4py.futures.html#mpipoolexecutor
+    if __name__ == "__main__":
 
-    # load the data
-    learner.load(fname)
+        learner = adaptive.Learner1D(f, bounds=(-1, 1))
 
-    # run until `goal` is reached with an `MPIPoolExecutor`
-    runner = adaptive.Runner(
-        learner,
-        executor=MPIPoolExecutor(),
-        shutdown_executor=True,
-        goal=lambda l: l.loss() < 0.01,
-    )
+        # load the data
+        learner.load(fname)
 
-    # periodically save the data (in case the job dies)
-    runner.start_periodic_saving(dict(fname=fname), interval=600)
+        # run until `goal` is reached with an `MPIPoolExecutor`
+        runner = adaptive.Runner(
+            learner,
+            executor=MPIPoolExecutor(),
+            shutdown_executor=True,
+            goal=lambda l: l.loss() < 0.01,
+        )
 
-    # block until runner goal reached
-    runner.ioloop.run_until_complete(runner.task)
+        # periodically save the data (in case the job dies)
+        runner.start_periodic_saving(dict(fname=fname), interval=600)
 
-    # save one final time before exiting
-    learner.save(fname)
+        # block until runner goal reached
+        runner.ioloop.run_until_complete(runner.task)
+
+        # save one final time before exiting
+        learner.save(fname)
 
 
 On your laptop/desktop you can run this script like:
@@ -112,3 +116,21 @@ How you call MPI might depend on your specific queuing system, with SLURM for ex
     #SBATCH --ntasks 100
 
     srun -n $SLURM_NTASKS --mpi=pmi2 ~/miniconda3/envs/py37_min/bin/python -m mpi4py.futures run_learner.py
+
+`loky.get_reusable_executor`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This executor is basically a powered-up version of `~concurrent.futures.ProcessPoolExecutor`, check its `documentation <https://loky.readthedocs.io/>`_.
+Among other things, it allows to *reuse* the executor and uses ``cloudpickle`` for serialization.
+This means you can even learn closures, lambdas, or other functions that are not picklable with `pickle`.
+
+.. code:: python
+
+    from loky import get_reusable_executor
+    ex = get_reusable_executor()
+
+    f = lambda x: x
+    learner = adaptive.Learner1D(f, bounds=(-1, 1))
+
+    runner = adaptive.Runner(learner, goal=lambda l: l.loss() < 0.01, executor=ex)
+    runner.live_info()

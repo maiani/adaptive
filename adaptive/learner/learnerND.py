@@ -141,7 +141,7 @@ def triangle_loss(
         The scale of values, where ``values = function_values * value_scale``.
     neighbors : list of tuples
         The neighboring points of the simplex, ordered such that simplex[0]
-        exacly opposes neighbors[0], etc.
+        exactly opposes neighbors[0], etc.
     neighbor_values : list of values
         The function values for each of the neighboring points.
 
@@ -179,7 +179,7 @@ def curvature_loss_function(exploration: float = 0.05) -> Callable:
             The scale of values, where ``values = function_values * value_scale``.
         neighbors : list of tuples
             The neighboring points of the simplex, ordered such that simplex[0]
-            exacly opposes neighbors[0], etc.
+            exactly opposes neighbors[0], etc.
         neighbor_values : list of values
             The scaled function values for each of the neighboring points.
 
@@ -538,7 +538,9 @@ class LearnerND(BaseLearner):
         else:
             return self._ask_and_tell_pending(n)
 
-    def _ask_bound_point(self,) -> Tuple[Point, float]:
+    def _ask_bound_point(
+        self,
+    ) -> Tuple[Point, float]:
         # get the next bound point that is still available
         new_point = next(
             p
@@ -548,7 +550,9 @@ class LearnerND(BaseLearner):
         self.tell_pending(new_point)
         return new_point, np.inf
 
-    def _ask_point_without_known_simplices(self,) -> Tuple[Point, float]:
+    def _ask_point_without_known_simplices(
+        self,
+    ) -> Tuple[Point, float]:
         assert not self._bounds_available
         # pick a random point inside the bounds
         # XXX: change this into picking a point based on volume loss
@@ -589,7 +593,9 @@ class LearnerND(BaseLearner):
             "  be a simplex available if LearnerND.tri() is not None."
         )
 
-    def _ask_best_point(self,) -> Tuple[Point, float]:
+    def _ask_best_point(
+        self,
+    ) -> Tuple[Point, float]:
         assert self.tri is not None
 
         loss, simplex, subsimplex = self._pop_highest_existing_simplex()
@@ -616,7 +622,9 @@ class LearnerND(BaseLearner):
             for p in self._bounds_points
         )
 
-    def _ask(self,) -> Tuple[Point, float]:
+    def _ask(
+        self,
+    ) -> Tuple[Point, float]:
         if self._bounds_available:
             return self._ask_bound_point()  # O(1)
 
@@ -872,7 +880,7 @@ class LearnerND(BaseLearner):
                 return hv.Scatter([]) * hv.Path([])
             elif self.vdim > 1:
                 raise NotImplementedError(
-                    "multidimensional output not yet" " supported by `plot_slice`"
+                    "multidimensional output not yet supported by `plot_slice`"
                 )
             n = n or 201
             values = [
@@ -892,7 +900,7 @@ class LearnerND(BaseLearner):
         elif plot_dim == 2:
             if self.vdim > 1:
                 raise NotImplementedError(
-                    "holoviews currently does not support" " 3D surface plots in bokeh."
+                    "holoviews currently does not support 3D surface plots in bokeh."
                 )
             if n is None:
                 # Calculate how many grid points are needed.
@@ -1024,7 +1032,7 @@ class LearnerND(BaseLearner):
         elif which == "line":
             if self.ndim != 2 or self.vdim != 1:
                 raise Exception(
-                    "Isoline plotting is only supported" " for a 2D input and 1D output"
+                    "Isoline plotting is only supported for a 2D input and 1D output"
                 )
             get_surface = False
             get_line = True

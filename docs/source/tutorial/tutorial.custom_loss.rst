@@ -14,7 +14,7 @@ Custom adaptive logic for 1D and 2D
     :hide-code:
 
     import adaptive
-    adaptive.notebook_extension(_inline_js=False)
+    adaptive.notebook_extension()
 
     # Import modules that are used in multiple cells
     import numpy as np
@@ -47,6 +47,7 @@ tl;dr, one can use the following *loss functions* that
 + `adaptive.learner.learner1D.default_loss`
 + `adaptive.learner.learner1D.uniform_loss`
 + `adaptive.learner.learner1D.curvature_loss_function`
++ `adaptive.learner.learner1D.abs_min_log_loss`
 + `adaptive.learner.learner2D.default_loss`
 + `adaptive.learner.learner2D.uniform_loss`
 + `adaptive.learner.learner2D.minimize_triangle_surface_loss`
@@ -68,6 +69,8 @@ simple (but naive) strategy is to *uniformly* sample the domain:
         return dx
 
     def f_divergent_1d(x):
+        if x == 0:
+            return np.inf
         return 1 / x**2
 
     learner = adaptive.Learner1D(f_divergent_1d, (-1, 1), loss_per_interval=uniform_sampling_1d)
