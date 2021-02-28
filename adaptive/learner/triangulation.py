@@ -1,9 +1,11 @@
 import collections.abc
+import numbers
 from collections import Counter
 from itertools import chain, combinations
 from math import factorial, sqrt
 from typing import Any, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, Union
 
+import numpy as np
 import scipy.spatial
 from numpy import abs as np_abs
 from numpy import (
@@ -25,7 +27,7 @@ from numpy.linalg import det as ndet
 from numpy.linalg import matrix_rank, norm, slogdet, solve
 
 SimplexPoints = Union[List[Tuple[float, ...]], ndarray]  # XXX: check if this is correct
-Simplex = Tuple[int, ...]
+Simplex = Union[Tuple[numbers.Integral, ...], ndarray]
 Point = Union[Tuple[float, ...], ndarray]  # XXX: check if this is correct
 
 
@@ -49,7 +51,7 @@ def fast_norm(v: Union[Tuple[float, ...], ndarray]) -> float:
 
 def fast_2d_point_in_simplex(
     point: Point, simplex: SimplexPoints, eps: float = 1e-8
-) -> bool:
+) -> Union[np.bool_, bool]:
     (p0x, p0y), (p1x, p1y), (p2x, p2y) = simplex
     px, py = point
 
@@ -63,7 +65,9 @@ def fast_2d_point_in_simplex(
     return (t >= -eps) and (s + t <= 1 + eps)
 
 
-def point_in_simplex(point: Point, simplex: SimplexPoints, eps: float = 1e-8) -> bool:
+def point_in_simplex(
+    point: Point, simplex: SimplexPoints, eps: float = 1e-8
+) -> Union[np.bool_, bool]:
     if len(point) == 2:
         return fast_2d_point_in_simplex(point, simplex, eps)
 
@@ -322,7 +326,7 @@ class Triangulation:
         or more simplices in the
     """
 
-    def __init__(self, coords: Sequence[Point]) -> None:
+    def __init__(self, coords: Union[Sequence[Point], ndarray]) -> None:
         if not is_iterable_and_sized(coords):
             raise TypeError("Please provide a 2-dimensional list of points")
         coords = list(coords)
@@ -373,10 +377,12 @@ class Triangulation:
         for vertex in simplex:
             self.vertex_to_simplices[vertex].add(simplex)
 
-    def get_vertices(self, indices: Sequence[int]) -> List[Optional[Point]]:
+    def get_vertices(
+        self, indices: Sequence[numbers.Integral]
+    ) -> List[Optional[Point]]:
         return [self.get_vertex(i) for i in indices]
 
-    def get_vertex(self, index: Optional[int]) -> Optional[Point]:
+    def get_vertex(self, index: Optional[numbers.Integral]) -> Optional[Point]:
         if index is None:
             return None
         return self.vertices[index]
@@ -410,7 +416,7 @@ class Triangulation:
 
     def point_in_simplex(
         self, point: Point, simplex: Simplex, eps: float = 1e-8
-    ) -> bool:
+    ) -> Union[np.bool_, bool]:
         vertices = self.get_vertices(simplex)
         return point_in_simplex(point, vertices, eps)
 
@@ -616,7 +622,7 @@ class Triangulation:
         point: Point,
         simplex: Optional[Simplex] = None,
         transform: Optional[ndarray] = None,
-    ) -> Any:
+    ) -> Tuple[Set[Simplex], Set[Simplex]]:
         """Add a new vertex and create simplices as appropriate.
 
         Parameters

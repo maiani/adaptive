@@ -1,4 +1,5 @@
 import itertools
+import numbers
 from collections import defaultdict
 from collections.abc import Iterable
 from contextlib import suppress
@@ -210,12 +211,12 @@ class BalancingLearner(BaseLearner):
         return points, loss_improvements
 
     def _ask_and_tell_based_on_npoints(
-        self, n: int
-    ) -> Tuple[List[Tuple[int, Any]], List[float]]:
+        self, n: numbers.Integral
+    ) -> Tuple[List[Tuple[numbers.Integral, Any]], List[float]]:
         selected = []  # tuples ((learner_index, point), loss_improvement)
         total_points = [l.npoints + len(l.pending_points) for l in self.learners]
         for _ in range(n):
-            index = int(np.argmin(total_points))
+            index = np.argmin(total_points)
             # Take the points from the cache
             if index not in self._ask_cache:
                 self._ask_cache[index] = self.learners[index].ask(n=1)
@@ -229,7 +230,7 @@ class BalancingLearner(BaseLearner):
 
     def _ask_and_tell_based_on_cycle(
         self, n: int
-    ) -> Tuple[List[Tuple[int, Any]], List[float]]:
+    ) -> Tuple[List[Tuple[numbers.Integral, Any]], List[float]]:
         points, loss_improvements = [], []
         for _ in range(n):
             index = next(self._cycle)
@@ -242,7 +243,7 @@ class BalancingLearner(BaseLearner):
 
     def ask(
         self, n: int, tell_pending: bool = True
-    ) -> Tuple[List[Tuple[int, Any]], List[float]]:
+    ) -> Tuple[List[Tuple[numbers.Integral, Any]], List[float]]:
         """Chose points for learners."""
         if n == 0:
             return [], []
@@ -253,14 +254,14 @@ class BalancingLearner(BaseLearner):
         else:
             return self._ask_and_tell(n)
 
-    def tell(self, x: Tuple[int, Any], y: Any) -> None:
+    def tell(self, x: Tuple[numbers.Integral, Any], y: Any) -> None:
         index, x = x
         self._ask_cache.pop(index, None)
         self._loss.pop(index, None)
         self._pending_loss.pop(index, None)
         self.learners[index].tell(x, y)
 
-    def tell_pending(self, x: Tuple[int, Any]) -> None:
+    def tell_pending(self, x: Tuple[numbers.Integral, Any]) -> None:
         index, x = x
         self._ask_cache.pop(index, None)
         self._loss.pop(index, None)

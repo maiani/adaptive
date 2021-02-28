@@ -3,7 +3,7 @@ import itertools
 import random
 from collections import OrderedDict
 from collections.abc import Iterable
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import scipy.spatial
@@ -306,7 +306,7 @@ class LearnerND(BaseLearner):
     def __init__(
         self,
         func: Callable,
-        bounds: Union[Tuple[Tuple[float, float], ...], ConvexHull],
+        bounds: Union[Sequence[Tuple[float, float]], ConvexHull],
         loss_per_simplex: Optional[Callable] = None,
     ) -> None:
         self._vdim = None

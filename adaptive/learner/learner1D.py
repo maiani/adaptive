@@ -1,6 +1,7 @@
 import collections.abc
 import itertools
 import math
+import numbers
 from copy import deepcopy
 from typing import (
     Any,
@@ -414,7 +415,9 @@ class Learner1D(BaseLearner):
                 self._bbox[1][1] = max(self._bbox[1][1], y)
                 self._scale[1] = self._bbox[1][1] - self._bbox[1][0]
 
-    def tell(self, x: float, y: Union[float, Sequence[float], np.ndarray]) -> None:
+    def tell(
+        self, x: float, y: Union[float, Sequence[numbers.Number], np.ndarray]
+    ) -> None:
         if x in self.data:
             # The point is already evaluated before
             return
