@@ -201,7 +201,7 @@ def curvature_loss_function(exploration: float = 0.05) -> Callable:
 
 
 def choose_point_in_simplex(
-    simplex: np.ndarray, transform: Optional[np.ndarray] = None
+    simplex: Simplex, transform: Optional[np.ndarray] = None
 ) -> np.ndarray:
     """Choose a new point in inside a simplex.
 

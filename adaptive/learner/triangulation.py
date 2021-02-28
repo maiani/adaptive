@@ -26,9 +26,10 @@ from numpy import zeros
 from numpy.linalg import det as ndet
 from numpy.linalg import matrix_rank, norm, slogdet, solve
 
-SimplexPoints = Union[List[Tuple[float, ...]], ndarray]  # XXX: check if this is correct
-Simplex = Union[Tuple[numbers.Integral, ...], ndarray]
-Point = Union[Tuple[float, ...], ndarray]  # XXX: check if this is correct
+SimplexPoints = Union[List[Tuple[float, ...]], ndarray]
+Simplex = Union[Iterable[numbers.Integral], ndarray]
+Point = Union[Tuple[float, ...], ndarray]
+Points = Union[Sequence[Point], ndarray]
 
 
 def fast_norm(v: Union[Tuple[float, ...], ndarray]) -> float:
@@ -78,7 +79,7 @@ def point_in_simplex(
     return all(alpha > -eps) and sum(alpha) < 1 + eps
 
 
-def fast_2d_circumcircle(points: Sequence[Point]) -> Tuple[Tuple[float, float], float]:
+def fast_2d_circumcircle(points: Points) -> Tuple[Tuple[float, float], float]:
     """Compute the center and radius of the circumscribed circle of a triangle
 
     Parameters
@@ -115,7 +116,7 @@ def fast_2d_circumcircle(points: Sequence[Point]) -> Tuple[Tuple[float, float], 
 
 
 def fast_3d_circumcircle(
-    points: Sequence[Point],
+    points: Points,
 ) -> Tuple[Tuple[float, float, float], float]:
     """Compute the center and radius of the circumscribed sphere of a simplex.
 
@@ -215,7 +216,7 @@ def circumsphere(pts: ndarray) -> Tuple[Tuple[float, ...], float]:
     return tuple(center), radius
 
 
-def orientation(face: ndarray, origin: ndarray) -> int:
+def orientation(face: Union[tuple, ndarray], origin: Union[tuple, ndarray]) -> int:
     """Compute the orientation of the face with respect to a point, origin.
 
     Parameters
@@ -238,7 +239,7 @@ def orientation(face: ndarray, origin: ndarray) -> int:
     sign, logdet = slogdet(vectors - origin)
     if logdet < -50:  # assume it to be zero when it's close to zero
         return 0
-    return sign
+    return int(sign)
 
 
 def is_iterable_and_sized(obj: Any) -> bool:
@@ -326,7 +327,7 @@ class Triangulation:
         or more simplices in the
     """
 
-    def __init__(self, coords: Union[Sequence[Point], ndarray]) -> None:
+    def __init__(self, coords: Points) -> None:
         if not is_iterable_and_sized(coords):
             raise TypeError("Please provide a 2-dimensional list of points")
         coords = list(coords)
@@ -378,7 +379,7 @@ class Triangulation:
             self.vertex_to_simplices[vertex].add(simplex)
 
     def get_vertices(
-        self, indices: Sequence[numbers.Integral]
+        self, indices: Iterable[numbers.Integral]
     ) -> List[Optional[Point]]:
         return [self.get_vertex(i) for i in indices]
 
@@ -389,7 +390,7 @@ class Triangulation:
 
     def get_reduced_simplex(
         self, point: Point, simplex: Simplex, eps: float = 1e-8
-    ) -> list:
+    ) -> List[numbers.Integral]:
         """Check whether vertex lies within a simplex.
 
         Returns
@@ -440,7 +441,7 @@ class Triangulation:
         dim: Optional[int] = None,
         simplices: Optional[Iterable[Simplex]] = None,
         vertices: Optional[Iterable[int]] = None,
-    ) -> Iterator[Tuple[int, ...]]:
+    ) -> Iterator[Tuple[numbers.Integral, ...]]:
         """Iterator over faces of a simplex or vertex sequence."""
         if dim is None:
             dim = self.dim
@@ -525,7 +526,7 @@ class Triangulation:
 
     def point_in_cicumcircle(
         self, pt_index: int, simplex: Simplex, transform: ndarray
-    ) -> bool:
+    ) -> Union[bool, np.bool_]:
         # return self.fast_point_in_circumcircle(pt_index, simplex, transform)
         eps = 1e-8
 
@@ -603,7 +604,7 @@ class Triangulation:
         new_triangles = self.vertex_to_simplices[pt_index]
         return bad_triangles - new_triangles, new_triangles - bad_triangles
 
-    def _simplex_is_almost_flat(self, simplex: Simplex) -> bool:
+    def _simplex_is_almost_flat(self, simplex: Simplex) -> Union[bool, np.bool_]:
         return self._relative_volume(simplex) < 1e-8
 
     def _relative_volume(self, simplex: Simplex) -> float:
@@ -728,7 +729,7 @@ class Triangulation:
         return result
 
     @property
-    def hull(self) -> Set[int]:
+    def hull(self) -> Set[numbers.Integral]:
         """Compute hull from triangulation.
 
         Parameters
