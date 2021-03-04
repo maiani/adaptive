@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from math import sqrt
 from operator import attrgetter
-from typing import Callable, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from scipy.linalg import norm
@@ -142,15 +142,20 @@ class _Interval:
     def __init__(
         self, a: Union[int, float], b: Union[int, float], depth: int, rdepth: int
     ) -> None:
-        self.children = []
-        self.data = {}
+        self.children: List["_Interval"] = []
+        self.data: Dict[float, float] = {}
         self.a = a
         self.b = b
         self.depth = depth
         self.rdepth = rdepth
-        self.done_leaves = set()
-        self.depth_complete = None
+        self.done_leaves: Set["_Interval"] = set()
+        self.depth_complete: Optional[int] = None
         self.removed = False
+        if TYPE_CHECKING:
+            self.ndiv: int
+            self.parent: Optional["_Interval"]
+            self.err: float
+            self.c: np.ndarray
 
     @classmethod
     def make_first(cls, a: int, b: int, depth: int = 2) -> "_Interval":
@@ -234,7 +239,7 @@ class _Interval:
 
     def calc_ndiv(self) -> None:
         div = self.parent.c00 and self.c00 / self.parent.c00 > 2
-        self.ndiv += div
+        self.ndiv += int(div)
 
         if self.ndiv > ndiv_max and 2 * self.ndiv > self.rdepth:
             raise DivergentIntegralError
@@ -378,12 +383,14 @@ class IntegratorLearner(BaseLearner):
         self.bounds = bounds
         self.tol = tol
         self.max_ivals = 1000
-        self.priority_split = []
+        self.priority_split: List[_Interval] = []
         self.data = {}
         self.pending_points = set()
-        self._stack = []
-        self.x_mapping = defaultdict(lambda: SortedSet([], key=attrgetter("rdepth")))
-        self.ivals = set()
+        self._stack: List[float] = []
+        self.x_mapping: Dict[float, SortedSet] = defaultdict(
+            lambda: SortedSet([], key=attrgetter("rdepth"))
+        )
+        self.ivals: Set[_Interval] = set()
         ival = _Interval.make_first(*self.bounds)
         self.add_ival(ival)
         self.first_ival = ival
