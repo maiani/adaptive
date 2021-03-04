@@ -29,8 +29,7 @@ STATIC_VERSION_FILE = "_static_version.py"
 
 def get_version(version_file: str = STATIC_VERSION_FILE) -> str:
     version_info = get_static_version_info(version_file)
-    version = version_info["version"]
-    if version == "__use_git__":
+    if version_info["version"] == "__use_git__":
         version = get_version_from_git()
         if not version:
             version = get_version_from_git_archive(version_info)
@@ -38,11 +37,11 @@ def get_version(version_file: str = STATIC_VERSION_FILE) -> str:
             version = Version("unknown", None, None)
         return pep440_format(version)
     else:
-        return version
+        return version_info["version"]
 
 
 def get_static_version_info(version_file: str = STATIC_VERSION_FILE) -> Dict[str, str]:
-    version_info = {}
+    version_info: Dict[str, str] = {}
     with open(os.path.join(package_root, version_file), "rb") as f:
         exec(f.read(), {}, version_info)
     return version_info
@@ -78,14 +77,14 @@ def get_version_from_git() -> Version:
             stderr=subprocess.PIPE,
         )
     except OSError:
-        return
+        return None
     if p.wait() != 0:
-        return
+        return None
     if not os.path.samefile(p.communicate()[0].decode().rstrip("\n"), distr_root):
         # The top-level directory of the current Git repository is not the same
         # as the root directory of the distribution: do not extract the
         # version from Git.
-        return
+        return None
 
     # git describe --first-parent does not take into account tags from branches
     # that were merged-in. The '--long' flag gets us the 'dev' version and
@@ -93,17 +92,17 @@ def get_version_from_git() -> Version:
     for opts in [["--first-parent"], []]:
         try:
             p = subprocess.Popen(
-                ["git", "describe", "--long", "--always"] + opts,
+                ["git", "describe", "--long", "--always"] + opts,  # type: ignore
                 cwd=distr_root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
         except OSError:
-            return
+            return None
         if p.wait() == 0:
             break
     else:
-        return
+        return None
 
     description = (
         p.communicate()[0]
@@ -143,7 +142,7 @@ def get_version_from_git() -> Version:
 #       Currently we can only tell the tag the current commit is
 #       pointing to, or its hash (with no version info)
 #       if it is not tagged.
-def get_version_from_git_archive(version_info):
+def get_version_from_git_archive(version_info) -> Version:
     try:
         refnames = version_info["refnames"]
         git_hash = version_info["git_hash"]
@@ -166,7 +165,7 @@ def get_version_from_git_archive(version_info):
         return Version("unknown", dev=None, labels=[f"g{git_hash}"])
 
 
-__version__ = get_version()
+__version__: str = get_version()
 
 
 # The following section defines a module global 'cmdclass',
