@@ -27,9 +27,9 @@ from numpy.linalg import det as ndet
 from numpy.linalg import matrix_rank, norm, slogdet, solve
 
 SimplexPoints = Union[List[Tuple[float, ...]], ndarray]
-Simplex = Union[Iterable[numbers.Integral], ndarray]
+Simplex = Union[Sequence[numbers.Integral], ndarray]
 Point = Union[Tuple[float, ...], ndarray]
-Points = Union[Sequence[Point], ndarray]
+Points = Union[Sequence[Tuple[float, ...]], ndarray]
 
 
 def fast_norm(v: Union[Tuple[float, ...], ndarray]) -> float:
@@ -168,7 +168,7 @@ def fast_det(matrix: ndarray) -> float:
         return ndet(matrix)
 
 
-def circumsphere(pts: ndarray) -> Tuple[Tuple[float, ...], float]:
+def circumsphere(pts: Simplex) -> Tuple[Tuple[float, ...], float]:
     """Compute the center and radius of a N dimension sphere which touches each point in pts.
 
     Parameters

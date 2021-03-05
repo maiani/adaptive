@@ -82,8 +82,13 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
     """
 
     data: dict
-    npoints: int
     pending_points: set
+    function: Callable
+
+    @property
+    @abc.abstractmethod
+    def npoints(self) -> int:
+        """Number of learned points."""
 
     def tell(self, x: Any, y) -> None:
         """Tell the learner about a single value.
@@ -149,7 +154,7 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
         pass
 
     @abc.abstractmethod
-    def _set_data(self):
+    def _set_data(self, data: Any):
         pass
 
     def copy_from(self, other):

@@ -305,7 +305,7 @@ class LearnerND(BaseLearner):
 
     def __init__(
         self,
-        func: Callable,
+        function: Callable,
         bounds: Union[Sequence[Tuple[float, float]], ConvexHull],
         loss_per_simplex: Optional[Callable] = None,
     ) -> None:
@@ -339,8 +339,8 @@ class LearnerND(BaseLearner):
 
         self.ndim = len(self._bbox)
 
-        self.function = func
-        self._tri = None
+        self.function = function  # type: ignore
+        self._tri: Optional[Triangulation] = None
         self._losses: Dict[Simplex, float] = dict()
 
         self._pending_to_simplex: Dict[Point, Simplex] = dict()  # vertex → simplex
@@ -455,6 +455,7 @@ class LearnerND(BaseLearner):
         self._update_range(value)
         if tri is not None:
             simplex = self._pending_to_simplex.get(point)
+            assert self.tri is not None
             if simplex is not None and not self._simplex_exists(simplex):
                 simplex = None
             to_delete, to_add = tri.add_point(point, simplex, transform=self._transform)

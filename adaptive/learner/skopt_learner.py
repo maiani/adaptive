@@ -25,7 +25,7 @@ class SKOptLearner(Optimizer, BaseLearner):
     """
 
     def __init__(self, function: Callable, **kwargs) -> None:
-        self.function = function
+        self.function = function  # type: ignore
         self.pending_points = set()
         self.data = collections.OrderedDict()
         super().__init__(**kwargs)

@@ -101,7 +101,7 @@ class BalancingLearner(BaseLearner):
         # Naively we would make 'function' a method, but this causes problems
         # when using executors from 'concurrent.futures' because we have to
         # pickle the whole learner.
-        self.function = partial(dispatch, [l.function for l in self.learners])
+        self.function = partial(dispatch, [l.function for l in self.learners])  # type: ignore
 
         self._ask_cache = {}
         self._loss = {}

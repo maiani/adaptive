@@ -35,7 +35,7 @@ class AverageLearner(BaseLearner):
 
     def __init__(
         self,
-        function: Callable[[BaseLearner], float],
+        function: Callable[["AverageLearner"], float],
         atol: Optional[float] = None,
         rtol: Optional[float] = None,
         min_npoints: int = 2,
@@ -49,7 +49,7 @@ class AverageLearner(BaseLearner):
 
         self.data = {}
         self.pending_points = set()
-        self.function = function
+        self.function = function  # type: ignore
         self.atol = atol
         self.rtol = rtol
         self.npoints = 0

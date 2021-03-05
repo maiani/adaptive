@@ -26,9 +26,11 @@ from adaptive.learner.triangulation import simplex_volume_in_embedding
 from adaptive.notebook_integration import ensure_holoviews
 from adaptive.utils import cache_latest
 
+Point = Tuple[float, float]
+
 
 @uses_nth_neighbors(0)
-def uniform_loss(xs: Tuple[float, float], ys: Tuple[float, float]) -> float:
+def uniform_loss(xs: Point, ys: Any) -> float:
     """Loss function that samples the domain uniformly.
 
     Works with `~adaptive.Learner1D` only.
@@ -49,8 +51,8 @@ def uniform_loss(xs: Tuple[float, float], ys: Tuple[float, float]) -> float:
 
 @uses_nth_neighbors(0)
 def default_loss(
-    xs: Tuple[float, float],
-    ys: Union[Tuple[Iterable[float], Iterable[float]], Tuple[float, float]],
+    xs: Point,
+    ys: Union[Tuple[Iterable[float], Iterable[float]], Point],
 ) -> float:
     """Calculate loss on a single interval.
 
@@ -60,8 +62,8 @@ def default_loss(
     """
     dx = xs[1] - xs[0]
     if isinstance(ys[0], collections.abc.Iterable):
-        dy = [abs(a - b) for a, b in zip(*ys)]
-        return np.hypot(dx, dy).max()
+        dy_vec = [abs(a - b) for a, b in zip(*ys)]
+        return np.hypot(dx, dy_vec).max()
     else:
         dy = ys[1] - ys[0]
         return np.hypot(dx, dy)
@@ -200,7 +202,7 @@ class Learner1D(BaseLearner):
         bounds: Tuple[float, float],
         loss_per_interval: Optional[Callable] = None,
     ) -> None:
-        self.function = function
+        self.function = function  # type: ignore
 
         if hasattr(loss_per_interval, "nth_neighbors"):
             self.nth_neighbors = loss_per_interval.nth_neighbors
@@ -238,7 +240,7 @@ class Learner1D(BaseLearner):
 
         self.bounds = list(bounds)
 
-        self._vdim = None
+        self._vdim: Optional[int] = None
 
     @property
     def vdim(self) -> int:
@@ -565,7 +567,8 @@ class Learner1D(BaseLearner):
         # Add bound intervals to quals if bounds were missing.
         if len(self.data) + len(self.pending_points) == 0:
             # We don't have any points, so return a linspace with 'n' points.
-            return np.linspace(*self.bounds, n).tolist(), [np.inf] * n
+            a, b = self.bounds
+            return np.linspace(a, b, n).tolist(), [np.inf] * n
 
         quals = loss_manager(self._scale[0])
         if len(missing_bounds) > 0:
@@ -601,7 +604,7 @@ class Learner1D(BaseLearner):
                 quals[(*xs, n + 1)] = loss_qual * n / (n + 1)
 
         points = list(
-            itertools.chain.from_iterable(linspace(*ival, n) for (*ival, n) in quals)
+            itertools.chain.from_iterable(linspace(a, b, n) for ((a, b), n) in quals)
         )
 
         loss_improvements = list(
@@ -665,7 +668,8 @@ class Learner1D(BaseLearner):
 
     def _set_data(self, data: Dict[float, float]) -> None:
         if data:
-            self.tell_many(*zip(*data.items()))
+            xs, ys = zip(*data.items())
+            self.tell_many(xs, ys)
 
     def __getstate__(self):
         return (

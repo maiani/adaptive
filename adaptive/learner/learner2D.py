@@ -372,7 +372,7 @@ class Learner2D(BaseLearner):
 
         self._bounds_points = list(itertools.product(*bounds))
         self._stack.update({p: np.inf for p in self._bounds_points})
-        self.function = function
+        self.function = function  # type: ignore
         self._ip = self._ip_combined = None
 
         self.stack_size = 10
@@ -600,7 +600,7 @@ class Learner2D(BaseLearner):
 
     def ask(
         self, n: int, tell_pending: bool = True
-    ) -> Tuple[List[Tuple[float, float]], List[float]]:
+    ) -> Tuple[List[Union[Tuple[float, float], np.array]], List[float]]:
         # Even if tell_pending is False we add the point such that _fill_stack
         # will return new points, later we remove these points if needed.
         points = list(self._stack.keys())

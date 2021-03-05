@@ -70,7 +70,7 @@ class SequentialExecutor(concurrent.Executor):
     """
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
-        fut = concurrent.Future()
+        fut: concurrent.Future = concurrent.Future()
         try:
             fut.set_result(fn(*args, **kwargs))
         except Exception as e:
@@ -220,7 +220,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
         self._max_tasks = ntasks
 
-        self._pending_tasks = {}  # mapping from concurrent.futures.Future → point id
+        self._pending_tasks: Dict[concurrent.Future, int] = {}
 
         # if we instantiate our own executor, then we are also responsible
         # for calling 'shutdown'
@@ -231,7 +231,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
         # Timing
         self.start_time = time.time()
-        self.end_time = None
+        self.end_time: Optional[float] = None
         self._elapsed_function_time = 0
 
         # Error handling attributes
@@ -241,14 +241,14 @@ class BaseRunner(metaclass=abc.ABCMeta):
         self._tracebacks: Dict[int, str] = {}
 
         self._id_to_point: Dict[int, Any] = {}
-        self._next_id = functools.partial(
+        self._next_id: Callable[[], int] = functools.partial(
             next, itertools.count()
         )  # some unique id to be associated with each point
 
     def _get_max_tasks(self) -> int:
         return self._max_tasks or _get_ncores(self.executor)
 
-    def _do_raise(self, e, pid):
+    def _do_raise(self, e: Exception, pid: int):
         tb = self._tracebacks[pid]
         x = self._id_to_point[pid]
         raise RuntimeError(
@@ -673,7 +673,7 @@ class AsyncRunner(BaseRunner):
             self.executor.shutdown()  # Make sure we don't shoot ourselves later
 
         self.task = self.ioloop.create_task(self._run())
-        self.saving_task = None
+        self.saving_task: Optional[Task] = None
         if in_ipynb() and not self.ioloop.is_running():
             warnings.warn(
                 "The runner has been scheduled, but the asyncio "

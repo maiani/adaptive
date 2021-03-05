@@ -379,7 +379,7 @@ class IntegratorLearner(BaseLearner):
         plot : hv.Scatter
             Plots all the points that are evaluated.
         """
-        self.function = function
+        self.function = function  # type: ignore
         self.bounds = bounds
         self.tol = tol
         self.max_ivals = 1000

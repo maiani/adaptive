@@ -18,7 +18,7 @@ class _IgnoreFirstArgument:
     """
 
     def __init__(self, function: Callable) -> None:
-        self.function = function
+        self.function = function  # type: ignore
 
     def __call__(
         self, index_point: Tuple[int, Union[float, np.ndarray]], *args, **kwargs
@@ -62,7 +62,7 @@ class SequenceLearner(BaseLearner):
 
     def __init__(self, function: Callable, sequence: Iterable) -> None:
         self._original_function = function
-        self.function = _IgnoreFirstArgument(function)
+        self.function = _IgnoreFirstArgument(function)  # type: ignore
         self._to_do_indices = SortedSet({i for i, _ in enumerate(sequence)})
         self._ntotal = len(sequence)
         self.sequence = copy(sequence)
