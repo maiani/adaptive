@@ -5,19 +5,21 @@ import functools
 import inspect
 import itertools
 import pickle
+import platform
 import time
 import traceback
 import warnings
 from contextlib import suppress
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
+import loky
 from _asyncio import Future, Task
 
 from adaptive.learner.base_learner import BaseLearner
 from adaptive.notebook_integration import in_ipynb, live_info, live_plot
 
 _ThirdPartyClient = []
-_ThirdPartyExecutor = []
+_ThirdPartyExecutor = [loky.reusable_executor._ReusablePoolExecutor]
 
 try:
     import ipyparallel
@@ -46,18 +48,24 @@ try:
 except ModuleNotFoundError:
     with_mpi4py = False
 
-try:
-    import loky
-
-    with_loky = True
-    _ThirdPartyExecutor.append(loky.reusable_executor._ReusablePoolExecutor)
-except ModuleNotFoundError:
-    with_loky = False
-
 with suppress(ModuleNotFoundError):
     import uvloop
 
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+
+# -- Runner definitions
+
+if platform.system() == "Linux":
+    _default_executor = concurrent.ProcessPoolExecutor
+else:
+    # On Windows and MacOS functions, the __main__ module must be
+    # importable by worker subprocesses. This means that
+    # ProcessPoolExecutor will not work in the interactive interpreter.
+    # On Linux the whole process is forked, so the issue does not appear.
+    # See https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
+    # and https://github.com/python-adaptive/adaptive/issues/301
+    _default_executor = loky.get_reusable_executor
 
 
 # -- Internal executor-related, things
@@ -120,7 +128,7 @@ def _get_ncores(
         ex, (concurrent.ProcessPoolExecutor, concurrent.ThreadPoolExecutor)
     ):
         return ex._max_workers  # not public API!
-    elif with_loky and isinstance(ex, loky.reusable_executor._ReusablePoolExecutor):
+    elif isinstance(ex, loky.reusable_executor._ReusablePoolExecutor):
         return ex._max_workers  # not public API!
     elif isinstance(ex, SequentialExecutor):
         return 1
@@ -131,12 +139,6 @@ def _get_ncores(
         return ex._pool.size  # not public API!
     else:
         raise TypeError(f"Cannot get number of cores for {ex.__class__}")
-
-
-# -- Runner definitions
-_default_executor = (
-    loky.get_reusable_executor if with_loky else concurrent.ProcessPoolExecutor
-)
 
 
 class BaseRunner(metaclass=abc.ABCMeta):
@@ -153,7 +155,8 @@ class BaseRunner(metaclass=abc.ABCMeta):
                `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
                `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
-        If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
+        If not provided, a new `~concurrent.futures.ProcessPoolExecutor` on
+        Linux, and a `loky.get_reusable_executor` on MacOS and Windows.
     ntasks : int, optional
         The number of concurrent function evaluations. Defaults to the number
         of cores available in `executor`.
@@ -426,7 +429,8 @@ class BlockingRunner(BaseRunner):
                `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
                `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
-        If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
+        If not provided, a new `~concurrent.futures.ProcessPoolExecutor` on
+        Linux, and a `loky.get_reusable_executor` on MacOS and Windows.
     ntasks : int, optional
         The number of concurrent function evaluations. Defaults to the number
         of cores available in `executor`.
@@ -523,6 +527,10 @@ class BlockingRunner(BaseRunner):
             remaining = self._remove_unfinished()
             if remaining:
                 concurrent.wait(remaining)
+                # Some futures get their result set, despite being cancelled.
+                # see https://github.com/python-adaptive/adaptive/issues/319
+                with_result = [f for f in remaining if not f.cancelled() and f.done()]
+                self._process_futures(with_result)
             self._cleanup()
 
     def elapsed_time(self):
@@ -550,7 +558,8 @@ class AsyncRunner(BaseRunner):
                `mpi4py.futures.MPIPoolExecutor`, `ipyparallel.Client` or\
                `loky.get_reusable_executor`, optional
         The executor in which to evaluate the function to be learned.
-        If not provided, a new `~concurrent.futures.ProcessPoolExecutor`.
+        If not provided, a new `~concurrent.futures.ProcessPoolExecutor` on
+        Linux, and a `loky.get_reusable_executor` on MacOS and Windows.
     ntasks : int, optional
         The number of concurrent function evaluations. Defaults to the number
         of cores available in `executor`.

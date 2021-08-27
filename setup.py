@@ -5,8 +5,8 @@ import sys
 
 from setuptools import find_packages, setup
 
-if sys.version_info < (3, 6):
-    print("adaptive requires Python 3.6 or above.")
+if sys.version_info < (3, 7):
+    print("adaptive requires Python 3.7 or above.")
     sys.exit(1)
 
 
@@ -29,6 +29,8 @@ install_requires = [
     "sortedcollections >= 1.1",
     "sortedcontainers >= 2.0",
     "atomicwrites",
+    "cloudpickle",
+    "loky >= 2.9",
 ]
 
 extras_require = {
@@ -49,13 +51,12 @@ extras_require = {
         "pytest-randomly",
         "pytest-timeout",
         "pre_commit",
+        "pandas",
     ],
     "other": [
-        "cloudpickle",
         "dill",
         "distributed",
         "ipyparallel>=6.2.5",  # because of https://github.com/ipython/ipyparallel/issues/404
-        "loky",
         "scikit-optimize>=0.8.1",  # because of https://github.com/scikit-optimize/scikit-optimize/issues/931
         "wexpect" if os.name == "nt" else "pexpect",
     ],
@@ -65,7 +66,7 @@ setup(
     name="adaptive",
     description="Parallel active learning of mathematical functions",
     version=version,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     url="https://adaptive.readthedocs.io/",
     author="Adaptive authors",
     license="BSD",
@@ -73,9 +74,9 @@ setup(
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     packages=find_packages("."),
     install_requires=install_requires,

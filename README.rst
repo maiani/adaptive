@@ -11,9 +11,12 @@
 ``adaptive`` is an open-source Python library designed to
 make adaptive parallel function evaluation simple. With ``adaptive`` you
 just supply a function with its bounds, and it will be evaluated at the
-“best” points in parameter space. With just a few lines of code you can
-evaluate functions on a computing cluster, live-plot the data as it
-returns, and fine-tune the adaptive sampling algorithm.
+“best” points in parameter space, rather than unecessarily computing *all* points on a dense grid.
+With just a few lines of code you can evaluate functions on a computing cluster,
+live-plot the data as it returns, and fine-tune the adaptive sampling algorithm.
+
+``adaptive`` shines on computations where each evaluation of the function
+takes *at least* ≈100ms due to the overhead of picking potentially interesting points.
 
 Run the ``adaptive`` example notebook `live on
 Binder <https://mybinder.org/v2/gh/python-adaptive/adaptive/master?filepath=example-notebook.ipynb>`_
@@ -44,8 +47,10 @@ The following learners are implemented:
 - ``Learner1D``, for 1D functions ``f: ℝ → ℝ^N``,
 - ``Learner2D``, for 2D functions ``f: ℝ^2 → ℝ^N``,
 - ``LearnerND``, for ND functions ``f: ℝ^N → ℝ^M``,
-- ``AverageLearner``, For stochastic functions where you want to
+- ``AverageLearner``, for random variables where you want to
   average the result over many evaluations,
+- ``AverageLearner1D``, for stochastic 1D functions where you want to
+  estimate the mean value of the function at each point,
 - ``IntegratorLearner``, for
   when you want to intergrate a 1D function ``f: ℝ → ℝ``,
 - ``BalancingLearner``, for when you want to run several learners at once,
@@ -88,7 +93,7 @@ Adaptively learning a 1D function (the `gif` below) and live-plotting the proces
 Installation
 ------------
 
-``adaptive`` works with Python 3.6 and higher on Linux, Windows, or Mac,
+``adaptive`` works with Python 3.7 and higher on Linux, Windows, or Mac,
 and provides optional extensions for working with the Jupyter/IPython
 Notebook.
 

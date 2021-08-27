@@ -94,7 +94,7 @@ class BalancingLearner(BaseLearner):
         learners: List[BaseLearner],
         *,
         cdims: Optional[CDIMS_TYPE] = None,
-        strategy: STRATEGY_TYPE = "loss_improvements"
+        strategy: STRATEGY_TYPE = "loss_improvements",
     ) -> None:
         self.learners = learners
 
@@ -132,6 +132,15 @@ class BalancingLearner(BaseLearner):
     @property
     def npoints(self) -> int:
         return sum(l.npoints for l in self.learners)
+
+    @property
+    def nsamples(self):
+        if hasattr(self.learners[0], "nsamples"):
+            return sum(l.nsamples for l in self.learners)
+        else:
+            raise AttributeError(
+                f"{type(self.learners[0])} as no attribute called `nsamples`."
+            )
 
     @property
     def strategy(self) -> STRATEGY_TYPE:

@@ -23,7 +23,7 @@ def test_only_returns_new_points():
     assert learner.ask(1)[0][0] == 10
 
 
-@flaky.flaky(max_runs=3)
+@flaky.flaky(max_runs=5)
 def test_avg_std_and_npoints():
     learner = AverageLearner(lambda x: x, atol=None, rtol=0.01)
 
@@ -45,8 +45,8 @@ def test_avg_std_and_npoints():
             values = np.array(list(learner.data.values()))
             std = np.sqrt(sum((values - values.mean()) ** 2) / (len(values) - 1))
             assert learner.npoints == len(learner.data)
-            assert abs(learner.sum_f - values.sum()) < 1e-13
-            assert abs(learner.std - std) < 1e-13
+            assert abs(learner.sum_f - values.sum()) < 1e-12
+            assert abs(learner.std - std) < 1e-12
 
 
 def test_min_npoints():
@@ -59,3 +59,11 @@ def test_min_npoints():
         )
         simple(learner, lambda l: l.loss() < 1)
         assert learner.npoints >= max(2, min_npoints)
+
+
+def test_zero_mean():
+    # see https://github.com/python-adaptive/adaptive/issues/275
+    learner = AverageLearner(None, rtol=0.01)
+    learner.tell(0, -1)
+    learner.tell(1, 1)
+    learner.loss()

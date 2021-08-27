@@ -1,6 +1,7 @@
 from copy import copy
 from typing import Any, Callable, Iterable, List, Tuple, Union
 
+import cloudpickle
 import numpy as np
 from sortedcontainers import SortedDict, SortedSet
 
@@ -135,12 +136,13 @@ class SequenceLearner(BaseLearner):
 
     def __getstate__(self):
         return (
-            self._original_function,
+            cloudpickle.dumps(self._original_function),
             self.sequence,
             self._get_data(),
         )
 
     def __setstate__(self, state):
         function, sequence, data = state
+        function = cloudpickle.loads(function)
         self.__init__(function, sequence)
         self._set_data(data)
