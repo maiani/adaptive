@@ -1,20 +1,11 @@
+from __future__ import annotations
+
 import collections.abc
 import itertools
 import math
 import numbers
 from copy import deepcopy
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, Iterable, Literal, Sequence, Tuple
 
 import cloudpickle
 import numpy as np
@@ -53,7 +44,7 @@ def uniform_loss(xs: Point, ys: Any) -> float:
 @uses_nth_neighbors(0)
 def default_loss(
     xs: Point,
-    ys: Union[Tuple[Iterable[float], Iterable[float]], Point],
+    ys: tuple[Iterable[float], Iterable[float]] | Point,
 ) -> float:
     """Calculate loss on a single interval.
 
@@ -79,11 +70,8 @@ def abs_min_log_loss(xs, ys):
 
 @uses_nth_neighbors(1)
 def triangle_loss(
-    xs: Sequence[Union[float, None]],
-    ys: Union[
-        Iterable[Union[float, None]],
-        Iterable[Union[Iterable[float], None]],
-    ],
+    xs: Sequence[float | None],
+    ys: (Iterable[float | None] | Iterable[Iterable[float] | None]),
 ) -> float:
     xs = [x for x in xs if x is not None]
     ys = [y for y in ys if y is not None]
@@ -159,7 +147,7 @@ def curvature_loss_function(
     return curvature_loss
 
 
-def linspace(x_left: float, x_right: float, n: int) -> List[float]:
+def linspace(x_left: float, x_right: float, n: int) -> list[float]:
     """This is equivalent to
     'np.linspace(x_left, x_right, n, endpoint=False)[1:]',
     but it is 15-30 times faster for small 'n'."""
@@ -237,8 +225,8 @@ class Learner1D(BaseLearner):
     def __init__(
         self,
         function: Callable,
-        bounds: Tuple[float, float],
-        loss_per_interval: Optional[Callable] = None,
+        bounds: tuple[float, float],
+        loss_per_interval: Callable | None = None,
     ) -> None:
         self.function = function  # type: ignore
 
@@ -278,7 +266,7 @@ class Learner1D(BaseLearner):
 
         self.bounds = list(bounds)
 
-        self._vdim: Optional[int] = None
+        self._vdim: int | None = None
 
     @property
     def vdim(self) -> int:
@@ -318,20 +306,18 @@ class Learner1D(BaseLearner):
         max_interval, max_loss = losses.peekitem(0)
         return max_loss
 
-    def _scale_x(self, x: Optional[float]) -> Optional[float]:
+    def _scale_x(self, x: float | None) -> float | None:
         if x is None:
             return None
         return x / self._scale[0]
 
-    def _scale_y(
-        self, y: Optional[Union[float, np.ndarray]]
-    ) -> Optional[Union[float, np.ndarray]]:
+    def _scale_y(self, y: float | np.ndarray | None) -> float | np.ndarray | None:
         if y is None:
             return None
         y_scale = self._scale[1] or 1
         return y / y_scale
 
-    def _get_point_by_index(self, ind: int) -> Optional[float]:
+    def _get_point_by_index(self, ind: int) -> float | None:
         if ind < 0 or ind >= len(self.neighbors):
             return None
         return self.neighbors.keys()[ind]
@@ -433,7 +419,7 @@ class Learner1D(BaseLearner):
             neighbors.get(x_left, [None, None])[1] = x
             neighbors.get(x_right, [None, None])[0] = x
 
-    def _update_scale(self, x: float, y: Union[float, np.ndarray]) -> None:
+    def _update_scale(self, x: float, y: float | np.ndarray) -> None:
         """Update the scale with which the x and y-values are scaled.
 
         For a learner where the function returns a single scalar the scale
@@ -460,9 +446,7 @@ class Learner1D(BaseLearner):
                 self._bbox[1][1] = max(self._bbox[1][1], y)
                 self._scale[1] = self._bbox[1][1] - self._bbox[1][0]
 
-    def tell(
-        self, x: float, y: Union[float, Sequence[numbers.Number], np.ndarray]
-    ) -> None:
+    def tell(self, x: float, y: float | Sequence[numbers.Number] | np.ndarray) -> None:
         if x in self.data:
             # The point is already evaluated before
             return
@@ -706,10 +690,10 @@ class Learner1D(BaseLearner):
         self.losses_combined = deepcopy(self.losses)
         self.neighbors_combined = deepcopy(self.neighbors)
 
-    def _get_data(self) -> Dict[float, float]:
+    def _get_data(self) -> dict[float, float]:
         return self.data
 
-    def _set_data(self, data: Dict[float, float]) -> None:
+    def _set_data(self, data: dict[float, float]) -> None:
         if data:
             xs, ys = zip(*data.items())
             self.tell_many(xs, ys)

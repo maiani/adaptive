@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import abc
 from contextlib import suppress
 from copy import deepcopy
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from adaptive.utils import _RequireAttrsABCMeta, load, save
 
@@ -115,12 +117,10 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
     def tell_pending(self, x):
         """Tell the learner that 'x' has been requested such
         that it's not suggested again."""
-        pass
 
     @abc.abstractmethod
     def remove_unfinished(self):
         """Remove uncomputed data from the learner."""
-        pass
 
     @abc.abstractmethod
     def loss(self, real: bool = True):
@@ -147,7 +147,6 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
             `pending_points`. Set this to False if you do not
             want to modify the state of the learner.
         """
-        pass
 
     @abc.abstractmethod
     def _get_data(self):
@@ -196,8 +195,8 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
             data = load(fname, compress)
             self._set_data(data)
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         return deepcopy(self.__dict__)
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__ = state

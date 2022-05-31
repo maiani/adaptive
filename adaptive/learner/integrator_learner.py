@@ -1,10 +1,11 @@
 # Based on an adaptive quadrature algorithm by Pedro Gonnet
+from __future__ import annotations
 
 import sys
 from collections import defaultdict
 from math import sqrt
 from operator import attrgetter
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable
 
 import cloudpickle
 import numpy as np
@@ -17,7 +18,7 @@ from adaptive.notebook_integration import ensure_holoviews
 from adaptive.utils import cache_latest, restore
 
 
-def _downdate(c: np.ndarray, nans: List[int], depth: int) -> np.ndarray:
+def _downdate(c: np.ndarray, nans: list[int], depth: int) -> np.ndarray:
     # This is algorithm 5 from the thesis of Pedro Gonnet.
     b = coeff.b_def[depth].copy()
     m = coeff.ns[depth] - 1
@@ -37,7 +38,7 @@ def _downdate(c: np.ndarray, nans: List[int], depth: int) -> np.ndarray:
     return c
 
 
-def _zero_nans(fx: np.ndarray) -> List[int]:
+def _zero_nans(fx: np.ndarray) -> list[int]:
     """Caution: this function modifies fx."""
     nans = []
     for i in range(len(fx)):
@@ -127,26 +128,24 @@ class _Interval:
         "removed",
     ]
 
-    def __init__(
-        self, a: Union[int, float], b: Union[int, float], depth: int, rdepth: int
-    ) -> None:
-        self.children: List["_Interval"] = []
-        self.data: Dict[float, float] = {}
+    def __init__(self, a: int | float, b: int | float, depth: int, rdepth: int) -> None:
+        self.children: list[_Interval] = []
+        self.data: dict[float, float] = {}
         self.a = a
         self.b = b
         self.depth = depth
         self.rdepth = rdepth
-        self.done_leaves: Set["_Interval"] = set()
-        self.depth_complete: Optional[int] = None
+        self.done_leaves: set[_Interval] = set()
+        self.depth_complete: int | None = None
         self.removed = False
         if TYPE_CHECKING:
             self.ndiv: int
-            self.parent: Optional["_Interval"]
+            self.parent: _Interval | None
             self.err: float
             self.c: np.ndarray
 
     @classmethod
-    def make_first(cls, a: int, b: int, depth: int = 2) -> "_Interval":
+    def make_first(cls, a: int, b: int, depth: int = 2) -> _Interval:
         ival = _Interval(a, b, depth, rdepth=1)
         ival.ndiv = 0
         ival.parent = None
@@ -171,18 +170,18 @@ class _Interval:
             return False
         return all(p in self.data for p in self.points(depth))
 
-    def points(self, depth: Optional[int] = None) -> np.ndarray:
+    def points(self, depth: int | None = None) -> np.ndarray:
         if depth is None:
             depth = self.depth
         a = self.a
         b = self.b
         return (a + b) / 2 + (b - a) * coeff.xi[depth] / 2
 
-    def refine(self) -> "_Interval":
+    def refine(self) -> _Interval:
         self.depth += 1
         return self
 
-    def split(self) -> List["_Interval"]:
+    def split(self) -> list[_Interval]:
         points = self.points()
         m = points[len(points) // 2]
         ivals = [
@@ -244,9 +243,7 @@ class _Interval:
         for child in self.children:
             child.update_ndiv_recursively()
 
-    def complete_process(
-        self, depth: int
-    ) -> Union[Tuple[bool, bool], Tuple[bool, np.bool_]]:
+    def complete_process(self, depth: int) -> tuple[bool, bool] | tuple[bool, np.bool_]:
         """Calculate the integral contribution and error from this interval,
         and update the done leaves of all ancestor intervals."""
         assert self.depth_complete is None or self.depth_complete == depth - 1
@@ -335,7 +332,7 @@ class _Interval:
 
 
 class IntegratorLearner(BaseLearner):
-    def __init__(self, function: Callable, bounds: Tuple[int, int], tol: float) -> None:
+    def __init__(self, function: Callable, bounds: tuple[int, int], tol: float) -> None:
         """
         Parameters
         ----------
@@ -373,20 +370,20 @@ class IntegratorLearner(BaseLearner):
         self.bounds = bounds
         self.tol = tol
         self.max_ivals = 1000
-        self.priority_split: List[_Interval] = []
+        self.priority_split: list[_Interval] = []
         self.data = {}
         self.pending_points = set()
-        self._stack: List[float] = []
-        self.x_mapping: Dict[float, SortedSet] = defaultdict(
+        self._stack: list[float] = []
+        self.x_mapping: dict[float, SortedSet] = defaultdict(
             lambda: SortedSet([], key=attrgetter("rdepth"))
         )
-        self.ivals: Set[_Interval] = set()
+        self.ivals: set[_Interval] = set()
         ival = _Interval.make_first(*self.bounds)
         self.add_ival(ival)
         self.first_ival = ival
 
     @property
-    def approximating_intervals(self) -> Set["_Interval"]:
+    def approximating_intervals(self) -> set[_Interval]:
         return self.first_ival.done_leaves
 
     def tell(self, point: float, value: float) -> None:
@@ -425,7 +422,7 @@ class IntegratorLearner(BaseLearner):
     def tell_pending(self):
         pass
 
-    def propagate_removed(self, ival: "_Interval") -> None:
+    def propagate_removed(self, ival: _Interval) -> None:
         def _propagate_removed_down(ival):
             ival.removed = True
             self.ivals.discard(ival)
@@ -435,7 +432,7 @@ class IntegratorLearner(BaseLearner):
 
         _propagate_removed_down(ival)
 
-    def add_ival(self, ival: "_Interval") -> None:
+    def add_ival(self, ival: _Interval) -> None:
         for x in ival.points():
             # Update the mappings
             self.x_mapping[x].add(ival)
@@ -446,7 +443,7 @@ class IntegratorLearner(BaseLearner):
                 self._stack.append(x)
         self.ivals.add(ival)
 
-    def ask(self, n: int, tell_pending: bool = True) -> Tuple[List[float], List[float]]:
+    def ask(self, n: int, tell_pending: bool = True) -> tuple[list[float], list[float]]:
         """Choose points for learners."""
         if not tell_pending:
             with restore(self):
@@ -454,7 +451,7 @@ class IntegratorLearner(BaseLearner):
         else:
             return self._ask_and_tell_pending(n)
 
-    def _ask_and_tell_pending(self, n: int) -> Tuple[List[float], List[float]]:
+    def _ask_and_tell_pending(self, n: int) -> tuple[list[float], list[float]]:
         points, loss_improvements = self.pop_from_stack(n)
         n_left = n - len(points)
         while n_left > 0:
@@ -470,7 +467,7 @@ class IntegratorLearner(BaseLearner):
 
         return points, loss_improvements
 
-    def pop_from_stack(self, n: int) -> Tuple[List[float], List[float]]:
+    def pop_from_stack(self, n: int) -> tuple[list[float], list[float]]:
         points = self._stack[:n]
         self._stack = self._stack[n:]
         loss_improvements = [
@@ -481,7 +478,7 @@ class IntegratorLearner(BaseLearner):
     def remove_unfinished(self):
         pass
 
-    def _fill_stack(self) -> List[float]:
+    def _fill_stack(self) -> list[float]:
         # XXX: to-do if all the ivals have err=inf, take the interval
         # with the lowest rdepth and no children.
         force_split = bool(self.priority_split)

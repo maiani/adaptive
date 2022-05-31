@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import collections.abc
 import numbers
 from collections import Counter
 from itertools import chain, combinations
 from math import factorial, sqrt
-from typing import Any, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.spatial
@@ -32,7 +34,7 @@ Point = Union[Tuple[float, ...], ndarray]
 Points = Union[Sequence[Tuple[float, ...]], ndarray]
 
 
-def fast_norm(v: Union[Tuple[float, ...], ndarray]) -> float:
+def fast_norm(v: tuple[float, ...] | ndarray) -> float:
     """Take the vector norm for len 2, 3 vectors.
     Defaults to a square root of the dot product for larger vectors.
 
@@ -52,7 +54,7 @@ def fast_norm(v: Union[Tuple[float, ...], ndarray]) -> float:
 
 def fast_2d_point_in_simplex(
     point: Point, simplex: SimplexPoints, eps: float = 1e-8
-) -> Union[bool, np.bool_]:
+) -> bool | np.bool_:
     (p0x, p0y), (p1x, p1y), (p2x, p2y) = simplex
     px, py = point
 
@@ -68,7 +70,7 @@ def fast_2d_point_in_simplex(
 
 def point_in_simplex(
     point: Point, simplex: SimplexPoints, eps: float = 1e-8
-) -> Union[bool, np.bool_]:
+) -> bool | np.bool_:
     if len(point) == 2:
         return fast_2d_point_in_simplex(point, simplex, eps)
 
@@ -79,7 +81,7 @@ def point_in_simplex(
     return all(alpha > -eps) and sum(alpha) < 1 + eps
 
 
-def fast_2d_circumcircle(points: Points) -> Tuple[Tuple[float, float], float]:
+def fast_2d_circumcircle(points: Points) -> tuple[tuple[float, float], float]:
     """Compute the center and radius of the circumscribed circle of a triangle
 
     Parameters
@@ -117,7 +119,7 @@ def fast_2d_circumcircle(points: Points) -> Tuple[Tuple[float, float], float]:
 
 def fast_3d_circumcircle(
     points: Points,
-) -> Tuple[Tuple[float, float, float], float]:
+) -> tuple[tuple[float, float, float], float]:
     """Compute the center and radius of the circumscribed sphere of a simplex.
 
     Parameters
@@ -168,7 +170,7 @@ def fast_det(matrix: ndarray) -> float:
         return ndet(matrix)
 
 
-def circumsphere(pts: Simplex) -> Tuple[Tuple[float, ...], float]:
+def circumsphere(pts: Simplex) -> tuple[tuple[float, ...], float]:
     """Compute the center and radius of a N dimension sphere which touches each point in pts.
 
     Parameters
@@ -216,7 +218,7 @@ def circumsphere(pts: Simplex) -> Tuple[Tuple[float, ...], float]:
     return tuple(center), radius
 
 
-def orientation(face: Union[tuple, ndarray], origin: Union[tuple, ndarray]) -> int:
+def orientation(face: tuple | ndarray, origin: tuple | ndarray) -> int:
     """Compute the orientation of the face with respect to a point, origin.
 
     Parameters
@@ -355,10 +357,10 @@ class Triangulation:
                 "(the points are linearly dependent)"
             )
 
-        self.vertices: List[Point] = list(coords)
-        self.simplices: Set[Simplex] = set()
+        self.vertices: list[Point] = list(coords)
+        self.simplices: set[Simplex] = set()
         # initialise empty set for each vertex
-        self.vertex_to_simplices: List[Set[Simplex]] = [set() for _ in coords]
+        self.vertex_to_simplices: list[set[Simplex]] = [set() for _ in coords]
 
         # find a Delaunay triangulation to start with, then we will throw it
         # away and continue with our own algorithm
@@ -378,19 +380,17 @@ class Triangulation:
         for vertex in simplex:
             self.vertex_to_simplices[vertex].add(simplex)
 
-    def get_vertices(
-        self, indices: Iterable[numbers.Integral]
-    ) -> List[Optional[Point]]:
+    def get_vertices(self, indices: Iterable[numbers.Integral]) -> list[Point | None]:
         return [self.get_vertex(i) for i in indices]
 
-    def get_vertex(self, index: Optional[numbers.Integral]) -> Optional[Point]:
+    def get_vertex(self, index: numbers.Integral | None) -> Point | None:
         if index is None:
             return None
         return self.vertices[index]
 
     def get_reduced_simplex(
         self, point: Point, simplex: Simplex, eps: float = 1e-8
-    ) -> List[numbers.Integral]:
+    ) -> list[numbers.Integral]:
         """Check whether vertex lies within a simplex.
 
         Returns
@@ -417,7 +417,7 @@ class Triangulation:
 
     def point_in_simplex(
         self, point: Point, simplex: Simplex, eps: float = 1e-8
-    ) -> Union[bool, np.bool_]:
+    ) -> bool | np.bool_:
         vertices = self.get_vertices(simplex)
         return point_in_simplex(point, vertices, eps)
 
@@ -438,10 +438,10 @@ class Triangulation:
 
     def faces(
         self,
-        dim: Optional[int] = None,
-        simplices: Optional[Iterable[Simplex]] = None,
-        vertices: Optional[Iterable[int]] = None,
-    ) -> Iterator[Tuple[numbers.Integral, ...]]:
+        dim: int | None = None,
+        simplices: Iterable[Simplex] | None = None,
+        vertices: Iterable[int] | None = None,
+    ) -> Iterator[tuple[numbers.Integral, ...]]:
         """Iterator over faces of a simplex or vertex sequence."""
         if dim is None:
             dim = self.dim
@@ -462,11 +462,11 @@ class Triangulation:
         else:
             return faces
 
-    def containing(self, face: Tuple[int, ...]) -> Set[Simplex]:
+    def containing(self, face: tuple[int, ...]) -> set[Simplex]:
         """Simplices containing a face."""
         return set.intersection(*(self.vertex_to_simplices[i] for i in face))
 
-    def _extend_hull(self, new_vertex: Point, eps: float = 1e-8) -> Set[Simplex]:
+    def _extend_hull(self, new_vertex: Point, eps: float = 1e-8) -> set[Simplex]:
         # count multiplicities in order to get all hull faces
         multiplicities = Counter(face for face in self.faces())
         hull_faces = [face for face, count in multiplicities.items() if count == 1]
@@ -508,7 +508,7 @@ class Triangulation:
 
     def circumscribed_circle(
         self, simplex: Simplex, transform: ndarray
-    ) -> Tuple[Tuple[float, ...], float]:
+    ) -> tuple[tuple[float, ...], float]:
         """Compute the center and radius of the circumscribed circle of a simplex.
 
         Parameters
@@ -526,7 +526,7 @@ class Triangulation:
 
     def point_in_cicumcircle(
         self, pt_index: int, simplex: Simplex, transform: ndarray
-    ) -> Union[bool, np.bool_]:
+    ) -> bool | np.bool_:
         # return self.fast_point_in_circumcircle(pt_index, simplex, transform)
         eps = 1e-8
 
@@ -542,9 +542,9 @@ class Triangulation:
     def bowyer_watson(
         self,
         pt_index: int,
-        containing_simplex: Optional[Simplex] = None,
-        transform: Optional[ndarray] = None,
-    ) -> Tuple[Set[Simplex], Set[Simplex]]:
+        containing_simplex: Simplex | None = None,
+        transform: ndarray | None = None,
+    ) -> tuple[set[Simplex], set[Simplex]]:
         """Modified Bowyer-Watson point adding algorithm.
 
         Create a hole in the triangulation around the new point,
@@ -604,7 +604,7 @@ class Triangulation:
         new_triangles = self.vertex_to_simplices[pt_index]
         return bad_triangles - new_triangles, new_triangles - bad_triangles
 
-    def _simplex_is_almost_flat(self, simplex: Simplex) -> Union[bool, np.bool_]:
+    def _simplex_is_almost_flat(self, simplex: Simplex) -> bool | np.bool_:
         return self._relative_volume(simplex) < 1e-8
 
     def _relative_volume(self, simplex: Simplex) -> float:
@@ -621,9 +621,9 @@ class Triangulation:
     def add_point(
         self,
         point: Point,
-        simplex: Optional[Simplex] = None,
-        transform: Optional[ndarray] = None,
-    ) -> Tuple[Set[Simplex], Set[Simplex]]:
+        simplex: Simplex | None = None,
+        transform: ndarray | None = None,
+    ) -> tuple[set[Simplex], set[Simplex]]:
         """Add a new vertex and create simplices as appropriate.
 
         Parameters
@@ -678,7 +678,7 @@ class Triangulation:
         vectors = vertices[1:] - vertices[0]
         return float(abs(fast_det(vectors)) / prefactor)
 
-    def volumes(self) -> List[float]:
+    def volumes(self) -> list[float]:
         return [self.volume(sim) for sim in self.simplices]
 
     def reference_invariant(self) -> bool:
@@ -695,23 +695,23 @@ class Triangulation:
         """Simplices originating from a vertex don't overlap."""
         raise NotImplementedError
 
-    def get_neighbors_from_vertices(self, simplex: Simplex) -> Set[Simplex]:
+    def get_neighbors_from_vertices(self, simplex: Simplex) -> set[Simplex]:
         return set.union(*[self.vertex_to_simplices[p] for p in simplex])
 
     def get_face_sharing_neighbors(
-        self, neighbors: Set[Simplex], simplex: Simplex
-    ) -> Set[Simplex]:
+        self, neighbors: set[Simplex], simplex: Simplex
+    ) -> set[Simplex]:
         """Keep only the simplices sharing a whole face with simplex."""
         return {
             simpl for simpl in neighbors if len(set(simpl) & set(simplex)) == self.dim
         }  # they share a face
 
-    def get_simplices_attached_to_points(self, indices: Simplex) -> Set[Simplex]:
+    def get_simplices_attached_to_points(self, indices: Simplex) -> set[Simplex]:
         # Get all simplices that share at least a point with the simplex
         neighbors = self.get_neighbors_from_vertices(indices)
         return self.get_face_sharing_neighbors(neighbors, indices)
 
-    def get_opposing_vertices(self, simplex: Simplex) -> Tuple[int, ...]:
+    def get_opposing_vertices(self, simplex: Simplex) -> tuple[int, ...]:
         if simplex not in self.simplices:
             raise ValueError("Provided simplex is not part of the triangulation")
         neighbors = self.get_simplices_attached_to_points(simplex)
@@ -729,7 +729,7 @@ class Triangulation:
         return result
 
     @property
-    def hull(self) -> Set[numbers.Integral]:
+    def hull(self) -> set[numbers.Integral]:
         """Compute hull from triangulation.
 
         Parameters

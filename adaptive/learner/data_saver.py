@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import functools
 from collections import OrderedDict
 from operator import itemgetter
-from typing import Any, Dict, Tuple, Union
+from typing import Any
 
 from adaptive.learner.base_learner import BaseLearner
 from adaptive.utils import copy_docstring_from
@@ -48,16 +50,16 @@ class DataSaver:
 
     def _get_data(
         self,
-    ) -> Tuple[Any, OrderedDict]:
+    ) -> tuple[Any, OrderedDict]:
         return self.learner._get_data(), self.extra_data
 
     def _set_data(
         self,
-        data: Union[
-            Tuple[OrderedDict, OrderedDict],
-            Tuple[Dict[Union[int, float], float], OrderedDict],
-            Tuple[Tuple[Dict[int, float], int, float, float], OrderedDict],
-        ],
+        data: (
+            tuple[OrderedDict, OrderedDict]
+            | tuple[dict[int | float, float], OrderedDict]
+            | tuple[tuple[dict[int, float], int, float, float], OrderedDict]
+        ),
     ) -> None:
         learner_data, self.extra_data = data
         self.learner._set_data(learner_data)

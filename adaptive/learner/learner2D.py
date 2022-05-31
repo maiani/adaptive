@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import itertools
 import warnings
 from collections import OrderedDict
 from copy import copy
 from math import sqrt
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable
 
 import cloudpickle
 import numpy as np
@@ -18,7 +20,7 @@ from adaptive.utils import cache_latest
 # Learner2D and helper functions.
 
 
-def deviations(ip: LinearNDInterpolator) -> List[np.ndarray]:
+def deviations(ip: LinearNDInterpolator) -> list[np.ndarray]:
     """Returns the deviation of the linear estimate.
 
     Is useful when defining custom loss functions.
@@ -356,8 +358,8 @@ class Learner2D(BaseLearner):
     def __init__(
         self,
         function: Callable,
-        bounds: Tuple[Tuple[int, int], Tuple[int, int]],
-        loss_per_triangle: Optional[Callable] = None,
+        bounds: tuple[tuple[int, int], tuple[int, int]],
+        loss_per_triangle: Callable | None = None,
     ) -> None:
         self.ndim = len(bounds)
         self._vdim = None
@@ -460,7 +462,7 @@ class Learner2D(BaseLearner):
         xs, ys = self._unscale(np.vstack([xs, ys]).T).T
         return xs, ys, zs
 
-    def _data_in_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _data_in_bounds(self) -> tuple[np.ndarray, np.ndarray]:
         if self.data:
             points = np.array(list(self.data.keys()))
             values = np.array(list(self.data.values()), dtype=float)
@@ -469,7 +471,7 @@ class Learner2D(BaseLearner):
             return points[inds], values[inds].reshape(-1, self.vdim)
         return np.zeros((0, 2)), np.zeros((0, self.vdim), dtype=float)
 
-    def _data_interp(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _data_interp(self) -> tuple[np.ndarray, np.ndarray]:
         if self.pending_points:
             points = list(self.pending_points)
             if self.bounds_are_done:
@@ -482,7 +484,7 @@ class Learner2D(BaseLearner):
             return points, values
         return np.zeros((0, 2)), np.zeros((0, self.vdim), dtype=float)
 
-    def _data_combined(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _data_combined(self) -> tuple[np.ndarray, np.ndarray]:
         points, values = self._data_in_bounds()
         if not self.pending_points:
             return points, values
@@ -541,14 +543,12 @@ class Learner2D(BaseLearner):
             self._ip_combined = interpolate.LinearNDInterpolator(points, values)
         return self._ip_combined
 
-    def inside_bounds(self, xy: Tuple[float, float]) -> Union[bool, np.bool_]:
+    def inside_bounds(self, xy: tuple[float, float]) -> bool | np.bool_:
         x, y = xy
         (xmin, xmax), (ymin, ymax) = self.bounds
         return xmin <= x <= xmax and ymin <= y <= ymax
 
-    def tell(
-        self, point: Tuple[float, float], value: Union[float, Iterable[float]]
-    ) -> None:
+    def tell(self, point: tuple[float, float], value: float | Iterable[float]) -> None:
         point = tuple(point)
         self.data[point] = value
         if not self.inside_bounds(point):
@@ -557,7 +557,7 @@ class Learner2D(BaseLearner):
         self._ip = None
         self._stack.pop(point, None)
 
-    def tell_pending(self, point: Tuple[float, float]) -> None:
+    def tell_pending(self, point: tuple[float, float]) -> None:
         point = tuple(point)
         if not self.inside_bounds(point):
             return
@@ -567,7 +567,7 @@ class Learner2D(BaseLearner):
 
     def _fill_stack(
         self, stack_till: int = 1
-    ) -> Tuple[List[Tuple[float, float]], List[float]]:
+    ) -> tuple[list[tuple[float, float]], list[float]]:
         if len(self.data) + len(self.pending_points) < self.ndim + 1:
             raise ValueError("too few points...")
 
@@ -608,7 +608,7 @@ class Learner2D(BaseLearner):
 
     def ask(
         self, n: int, tell_pending: bool = True
-    ) -> Tuple[List[Union[Tuple[float, float], np.array]], List[float]]:
+    ) -> tuple[list[tuple[float, float] | np.array], list[float]]:
         # Even if tell_pending is False we add the point such that _fill_stack
         # will return new points, later we remove these points if needed.
         points = list(self._stack.keys())

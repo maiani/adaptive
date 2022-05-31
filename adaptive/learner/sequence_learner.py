@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from copy import copy
-from typing import Any, Callable, Iterable, List, Tuple, Union
+from typing import Any, Callable, Iterable
 
 import cloudpickle
 import numpy as np
@@ -22,7 +24,7 @@ class _IgnoreFirstArgument:
         self.function = function  # type: ignore
 
     def __call__(
-        self, index_point: Tuple[int, Union[float, np.ndarray]], *args, **kwargs
+        self, index_point: tuple[int, float | np.ndarray], *args, **kwargs
     ) -> float:
         index, point = index_point
         return self.function(point, *args, **kwargs)
@@ -70,7 +72,7 @@ class SequenceLearner(BaseLearner):
         self.data = SortedDict()
         self.pending_points = set()
 
-    def ask(self, n: int, tell_pending: bool = True) -> Tuple[Any, List[float]]:
+    def ask(self, n: int, tell_pending: bool = True) -> tuple[Any, list[float]]:
         indices = []
         points = []
         loss_improvements = []
@@ -100,7 +102,7 @@ class SequenceLearner(BaseLearner):
             self._to_do_indices.add(i)
         self.pending_points = set()
 
-    def tell(self, point: Tuple[int, Any], value: Any) -> None:
+    def tell(self, point: tuple[int, Any], value: Any) -> None:
         index, point = point
         self.data[index] = value
         self.pending_points.discard(index)

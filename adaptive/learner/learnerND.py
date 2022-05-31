@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import functools
 import itertools
 import random
 from collections import OrderedDict
 from collections.abc import Iterable
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import scipy.spatial
@@ -25,7 +27,7 @@ from adaptive.notebook_integration import ensure_holoviews, ensure_plotly
 from adaptive.utils import cache_latest, restore
 
 
-def to_list(inp: float) -> List[float]:
+def to_list(inp: float) -> list[float]:
     if isinstance(inp, Iterable):
         return list(inp)
     return [inp]
@@ -124,9 +126,9 @@ def triangle_loss(
     simplex: np.ndarray,
     values: np.ndarray,
     value_scale: float,
-    neighbors: Union[List[Union[None, np.ndarray]], List[None], List[np.ndarray]],
-    neighbor_values: Union[List[Union[None, float]], List[None], List[float]],
-) -> Union[int, float]:
+    neighbors: list[None | np.ndarray] | list[None] | list[np.ndarray],
+    neighbor_values: list[None | float] | list[None] | list[float],
+) -> int | float:
     """
     Computes the average of the volumes of the simplex combined with each
     neighbouring point.
@@ -201,7 +203,7 @@ def curvature_loss_function(exploration: float = 0.05) -> Callable:
 
 
 def choose_point_in_simplex(
-    simplex: Simplex, transform: Optional[np.ndarray] = None
+    simplex: Simplex, transform: np.ndarray | None = None
 ) -> np.ndarray:
     """Choose a new point in inside a simplex.
 
@@ -306,8 +308,8 @@ class LearnerND(BaseLearner):
     def __init__(
         self,
         function: Callable,
-        bounds: Union[Sequence[Tuple[float, float]], ConvexHull],
-        loss_per_simplex: Optional[Callable] = None,
+        bounds: Sequence[tuple[float, float]] | ConvexHull,
+        loss_per_simplex: Callable | None = None,
     ) -> None:
         self._vdim = None
         self.loss_per_simplex = loss_per_simplex or default_loss
@@ -340,13 +342,13 @@ class LearnerND(BaseLearner):
         self.ndim = len(self._bbox)
 
         self.function = function  # type: ignore
-        self._tri: Optional[Triangulation] = None
-        self._losses: Dict[Simplex, float] = dict()
+        self._tri: Triangulation | None = None
+        self._losses: dict[Simplex, float] = dict()
 
-        self._pending_to_simplex: Dict[Point, Simplex] = dict()  # vertex → simplex
+        self._pending_to_simplex: dict[Point, Simplex] = dict()  # vertex → simplex
 
         # triangulation of the pending points inside a specific simplex
-        self._subtriangulations: Dict[
+        self._subtriangulations: dict[
             Simplex, Triangulation
         ] = dict()  # simplex → triangulation
 
@@ -415,7 +417,7 @@ class LearnerND(BaseLearner):
         return interpolate.LinearNDInterpolator(self.points, self.values)
 
     @property
-    def tri(self) -> Optional[Triangulation]:
+    def tri(self) -> Triangulation | None:
         """An `adaptive.learner.triangulation.Triangulation` instance
         with all the points of the learner."""
         if self._tri is not None:
@@ -442,7 +444,7 @@ class LearnerND(BaseLearner):
         """Get the points from `data` as a numpy array."""
         return np.array(list(self.data.keys()), dtype=float)
 
-    def tell(self, point: Tuple[float, ...], value: Union[float, np.ndarray]) -> None:
+    def tell(self, point: tuple[float, ...], value: float | np.ndarray) -> None:
         point = tuple(point)
 
         if point in self.data:
@@ -471,7 +473,7 @@ class LearnerND(BaseLearner):
         simplex = tuple(sorted(simplex))
         return simplex in self.tri.simplices
 
-    def inside_bounds(self, point: Tuple[float, ...]) -> Union[bool, np.bool_]:
+    def inside_bounds(self, point: tuple[float, ...]) -> bool | np.bool_:
         """Check whether a point is inside the bounds."""
         if hasattr(self, "_interior"):
             return self._interior.find_simplex(point, tol=1e-8) >= 0
@@ -481,7 +483,7 @@ class LearnerND(BaseLearner):
                 (mn - eps) <= p <= (mx + eps) for p, (mn, mx) in zip(point, self._bbox)
             )
 
-    def tell_pending(self, point: Tuple[float, ...], *, simplex=None) -> None:
+    def tell_pending(self, point: tuple[float, ...], *, simplex=None) -> None:
         point = tuple(point)
         if not self.inside_bounds(point):
             return
@@ -523,7 +525,7 @@ class LearnerND(BaseLearner):
         return self._subtriangulations[simplex].add_point(point)
 
     def _update_subsimplex_losses(
-        self, simplex: Simplex, new_subsimplices: Set[Simplex]
+        self, simplex: Simplex, new_subsimplices: set[Simplex]
     ) -> None:
         loss = self._losses[simplex]
 
@@ -547,7 +549,7 @@ class LearnerND(BaseLearner):
 
     def _ask_bound_point(
         self,
-    ) -> Tuple[Point, float]:
+    ) -> tuple[Point, float]:
         # get the next bound point that is still available
         new_point = next(
             p
@@ -559,7 +561,7 @@ class LearnerND(BaseLearner):
 
     def _ask_point_without_known_simplices(
         self,
-    ) -> Tuple[Point, float]:
+    ) -> tuple[Point, float]:
         assert not self._bounds_available
         # pick a random point inside the bounds
         # XXX: change this into picking a point based on volume loss
@@ -602,7 +604,7 @@ class LearnerND(BaseLearner):
 
     def _ask_best_point(
         self,
-    ) -> Tuple[Point, float]:
+    ) -> tuple[Point, float]:
         assert self.tri is not None
 
         loss, simplex, subsimplex = self._pop_highest_existing_simplex()
@@ -631,7 +633,7 @@ class LearnerND(BaseLearner):
 
     def _ask(
         self,
-    ) -> Tuple[Point, float]:
+    ) -> tuple[Point, float]:
         if self._bounds_available:
             return self._ask_bound_point()  # O(1)
 
@@ -682,7 +684,7 @@ class LearnerND(BaseLearner):
             )
         )
 
-    def _update_losses(self, to_delete: Set[Simplex], to_add: Set[Simplex]) -> None:
+    def _update_losses(self, to_delete: set[Simplex], to_add: set[Simplex]) -> None:
         # XXX: add the points outside the triangulation to this as well
         pending_points_unbound = set()
 
@@ -756,7 +758,7 @@ class LearnerND(BaseLearner):
         # get the output scale
         return self._max_value - self._min_value
 
-    def _update_range(self, new_output: Union[List[int], float, np.ndarray]) -> bool:
+    def _update_range(self, new_output: list[int] | float | np.ndarray) -> bool:
         if self._min_value is None or self._max_value is None:
             # this is the first point, nothing to do, just set the range
             self._min_value = np.min(new_output)
@@ -807,7 +809,7 @@ class LearnerND(BaseLearner):
     # Plotting related stuff #
     ##########################
 
-    def plot(self, n: Optional[int] = None, tri_alpha: float = 0):
+    def plot(self, n: int | None = None, tri_alpha: float = 0):
         """Plot the function we want to learn, only works in 2D.
 
         Parameters
@@ -868,7 +870,7 @@ class LearnerND(BaseLearner):
 
         return im.opts(style=im_opts) * tris.opts(style=tri_opts, **no_hover)
 
-    def plot_slice(self, cut_mapping: Dict[int, float], n: Optional[int] = None):
+    def plot_slice(self, cut_mapping: dict[int, float], n: int | None = None):
         """Plot a 1D or 2D interpolated slice of a N-dimensional function.
 
         Parameters
@@ -1099,7 +1101,7 @@ class LearnerND(BaseLearner):
         return vertices, faces_or_lines
 
     def plot_isoline(
-        self, level: float = 0.0, n: Optional[int] = None, tri_alpha: float = 0
+        self, level: float = 0.0, n: int | None = None, tri_alpha: float = 0
     ):
         """Plot the isoline at a specific level, only works in 2D.
 

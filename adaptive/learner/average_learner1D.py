@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import math
 import sys
 from collections import defaultdict
 from copy import deepcopy
 from math import hypot
-from typing import Callable, DefaultDict, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, DefaultDict, List, Sequence, Tuple
 
 import numpy as np
 import scipy.stats
@@ -17,7 +19,7 @@ from adaptive.types import Real
 Point = Tuple[int, Real]
 Points = List[Point]
 
-__all__: List[str] = ["AverageLearner1D"]
+__all__: list[str] = ["AverageLearner1D"]
 
 
 class AverageLearner1D(Learner1D):
@@ -65,11 +67,10 @@ class AverageLearner1D(Learner1D):
 
     def __init__(
         self,
-        function: Callable[[Tuple[int, Real]], Real],
-        bounds: Tuple[Real, Real],
-        loss_per_interval: Optional[
-            Callable[[Sequence[Real], Sequence[Real]], float]
-        ] = None,
+        function: Callable[[tuple[int, Real]], Real],
+        bounds: tuple[Real, Real],
+        loss_per_interval: None
+        | (Callable[[Sequence[Real], Sequence[Real]], float]) = None,
         delta: float = 0.2,
         alpha: float = 0.005,
         neighbor_sampling: float = 0.3,
@@ -105,7 +106,7 @@ class AverageLearner1D(Learner1D):
         self._number_samples = SortedDict()
         # This set contains the points x that have less than min_samples
         # samples or less than a (neighbor_sampling*100)% of their neighbors
-        self._undersampled_points: Set[Real] = set()
+        self._undersampled_points: set[Real] = set()
         # Contains the error in the estimate of the
         # mean at each point x in the form {x0: error(x0), ...}
         self.error: ItemSortedDict[Real, float] = decreasing_dict()
@@ -126,7 +127,7 @@ class AverageLearner1D(Learner1D):
             return 0
         return min(self._number_samples.values())
 
-    def ask(self, n: int, tell_pending: bool = True) -> Tuple[Points, List[float]]:
+    def ask(self, n: int, tell_pending: bool = True) -> tuple[Points, list[float]]:
         """Return 'n' points that are expected to maximally reduce the loss."""
         # If some point is undersampled, resample it
         if len(self._undersampled_points):
@@ -155,7 +156,7 @@ class AverageLearner1D(Learner1D):
 
         return points, loss_improvements
 
-    def _ask_for_more_samples(self, x: Real, n: int) -> Tuple[Points, List[float]]:
+    def _ask_for_more_samples(self, x: Real, n: int) -> tuple[Points, list[float]]:
         """When asking for n points, the learner returns n times an existing point
         to be resampled, since in general n << min_samples and this point will
         need to be resampled many more times"""
@@ -174,7 +175,7 @@ class AverageLearner1D(Learner1D):
         loss_improvements = [loss_improvement / n] * n
         return points, loss_improvements
 
-    def _ask_for_new_point(self, n: int) -> Tuple[Points, List[float]]:
+    def _ask_for_new_point(self, n: int) -> tuple[Points, list[float]]:
         """When asking for n new points, the learner returns n times a single
         new point, since in general n << min_samples and this point will need
         to be resampled many more times"""
@@ -388,7 +389,7 @@ class AverageLearner1D(Learner1D):
                 # simultaneously, before we move on to a new x
                 self.tell_many_at_point(x, seed_y_mapping)
 
-    def tell_many_at_point(self, x: Real, seed_y_mapping: Dict[int, Real]) -> None:
+    def tell_many_at_point(self, x: Real, seed_y_mapping: dict[int, Real]) -> None:
         """Tell the learner about many samples at a certain location x.
 
         Parameters

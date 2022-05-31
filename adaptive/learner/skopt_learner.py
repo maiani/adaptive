@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import collections
-from typing import Callable, List, Tuple, Union
+from typing import Callable
 
 import numpy as np
 from skopt import Optimizer
@@ -30,7 +32,7 @@ class SKOptLearner(Optimizer, BaseLearner):
         self.data = collections.OrderedDict()
         super().__init__(**kwargs)
 
-    def tell(self, x: Union[float, List[float]], y: float, fit: bool = True) -> None:
+    def tell(self, x: float | list[float], y: float, fit: bool = True) -> None:
         if isinstance(x, collections.abc.Iterable):
             self.pending_points.discard(tuple(x))
             self.data[tuple(x)] = y
@@ -61,10 +63,10 @@ class SKOptLearner(Optimizer, BaseLearner):
 
     def ask(
         self, n: int, tell_pending: bool = True
-    ) -> Union[
-        Tuple[List[float], List[float]],
-        Tuple[List[List[float]], List[float]],  # XXX: this indicates a bug!
-    ]:
+    ) -> (
+        tuple[list[float], list[float]]
+        | tuple[list[list[float]], list[float]]  # XXX: this indicates a bug!
+    ):
         if not tell_pending:
             raise NotImplementedError(
                 "Asking points is an irreversible "

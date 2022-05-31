@@ -1,15 +1,15 @@
 # Based on an adaptive quadrature algorithm by Pedro Gonnet
+from __future__ import annotations
 
 from collections import defaultdict
 from fractions import Fraction
 from functools import lru_cache
-from typing import List, Tuple
 
 import numpy as np
 import scipy.linalg
 
 
-def legendre(n: int) -> List[List[Fraction]]:
+def legendre(n: int) -> list[list[Fraction]]:
     """Return the first n Legendre polynomials.
 
     The polynomials have *standard* normalization, i.e.
@@ -87,7 +87,7 @@ def newton(n: int) -> np.ndarray:
     return cf
 
 
-def scalar_product(a: List[Fraction], b: List[Fraction]) -> Fraction:
+def scalar_product(a: list[Fraction], b: list[Fraction]) -> Fraction:
     """Compute the polynomial scalar product int_-1^1 dx a(x) b(x).
 
     The args must be sequences of polynomial coefficients.  This
@@ -108,7 +108,7 @@ def scalar_product(a: List[Fraction], b: List[Fraction]) -> Fraction:
     return 2 * sum(c[i] / (i + 1) for i in range(0, lc, 2))
 
 
-def calc_bdef(ns: Tuple[int, int, int, int]) -> List[np.ndarray]:
+def calc_bdef(ns: tuple[int, int, int, int]) -> list[np.ndarray]:
     """Calculate the decompositions of Newton polynomials (over the nodes
     of the n-point Clenshaw-Curtis quadrature rule) in terms of
     Legandre polynomials.
