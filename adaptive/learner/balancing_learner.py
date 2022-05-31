@@ -7,13 +7,18 @@ from collections.abc import Iterable
 from contextlib import suppress
 from functools import partial
 from operator import itemgetter
-from typing import Any, Callable, Dict, Literal, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Sequence, Tuple, Union
 
 import numpy as np
 
 from adaptive.learner.base_learner import BaseLearner
 from adaptive.notebook_integration import ensure_holoviews
 from adaptive.utils import cache_latest, named_product, restore
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 
 def dispatch(child_functions: list[Callable], arg: Any) -> Any:

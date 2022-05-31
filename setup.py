@@ -32,6 +32,8 @@ install_requires = [
     "cloudpickle",
     "loky >= 2.9",
 ]
+if sys.version_info < (3, 8):
+    install_requires.append("typing_extensions")
 
 extras_require = {
     "notebook": [
