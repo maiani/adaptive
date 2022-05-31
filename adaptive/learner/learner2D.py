@@ -137,11 +137,11 @@ def resolution_loss_function(
 
         A = areas(ip)
         # Setting areas with a small area to zero such that they won't be chosen again
-        loss[A < min_distance ** 2] = 0
+        loss[A < min_distance**2] = 0
 
         # Setting triangles that have a size larger than max_distance to infinite loss
         # such that these triangles will be picked
-        loss[A > max_distance ** 2] = np.inf
+        loss[A > max_distance**2] = np.inf
 
         return loss
 

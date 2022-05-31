@@ -420,7 +420,7 @@ def f0(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
 
 
 def f7(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    return x ** -0.5
+    return x**-0.5
 
 
 def f24(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -430,7 +430,7 @@ def f24(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
 def f21(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     y = 0
     for i in range(1, 4):
-        y += 1 / np.cosh(20 ** i * (x - 2 * i / 10))
+        y += 1 / np.cosh(20**i * (x - 2 * i / 10))
     return y
 
 

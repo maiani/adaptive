@@ -151,7 +151,7 @@ def curvature_loss_function(
         default_loss_ = default_loss(xs_middle, ys_middle)
         dx = xs_middle[1] - xs_middle[0]
         return (
-            area_factor * (triangle_loss_ ** 0.5)
+            area_factor * (triangle_loss_**0.5)
             + euclid_factor * default_loss_
             + horizontal_factor * dx
         )
@@ -536,10 +536,10 @@ class Learner1D(BaseLearner):
         self._oldscale = deepcopy(self._scale)
 
         # Find the intervals for which the losses should be calculated.
-        intervals, intervals_combined = [
+        intervals, intervals_combined = (
             [(x_m, x_r) for x_m, (x_l, x_r) in neighbors.items()][:-1]
             for neighbors in (self.neighbors, self.neighbors_combined)
-        ]
+        )
 
         # The the losses for the "real" intervals.
         self.losses = loss_manager(self._scale[0])
