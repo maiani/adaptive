@@ -20,6 +20,7 @@ from adaptive.notebook_integration import in_ipynb, live_info, live_plot
 
 _ThirdPartyClient = []
 _ThirdPartyExecutor = [loky.reusable_executor._ReusablePoolExecutor]
+_FutureTypes = [Set[Future], Set[Task]]
 
 try:
     import ipyparallel
@@ -28,6 +29,7 @@ try:
     with_ipyparallel = True
     _ThirdPartyClient.append(ipyparallel.Client)
     _ThirdPartyExecutor.append(ipyparallel.client.view.ViewExecutor)
+    _FutureTypes.append(AsyncResult)
 except ModuleNotFoundError:
     with_ipyparallel = False
 
@@ -306,11 +308,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
     def _process_futures(
         self,
-        done_futs: Union[
-            Set[Future],
-            Set[AsyncResult],  # XXX: AsyncResult might not be imported
-            Set[Task],
-        ],
+        done_futs: Union[(*_FutureTypes,)],
     ) -> None:
         for fut in done_futs:
             pid = self._pending_tasks.pop(fut)
@@ -335,11 +333,7 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
     def _get_futures(
         self,
-    ) -> Union[
-        List[Task],
-        List[Future],
-        List[AsyncResult],  # XXX: AsyncResult might not be imported
-    ]:
+    ) -> Union[(*_FutureTypes,)]:
         # Launch tasks to replace the ones that completed
         # on the last iteration, making sure to fill workers
         # that have started since the last iteration.
