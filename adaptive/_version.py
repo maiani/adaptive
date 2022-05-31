@@ -1,9 +1,10 @@
 # This file is part of 'miniver': https://github.com/jbweston/miniver
 #
+from __future__ import annotations
+
 import os
 import subprocess
 from collections import namedtuple
-from typing import Dict, List
 
 from setuptools.command.build_py import build_py as build_py_orig
 from setuptools.command.sdist import sdist as sdist_orig
@@ -11,7 +12,7 @@ from setuptools.command.sdist import sdist as sdist_orig
 Version = namedtuple("Version", ("release", "dev", "labels"))
 
 # No public API
-__all__: List[str] = []
+__all__: list[str] = []
 
 package_root = os.path.dirname(os.path.realpath(__file__))
 package_name = os.path.basename(package_root)
@@ -40,8 +41,8 @@ def get_version(version_file: str = STATIC_VERSION_FILE) -> str:
         return version_info["version"]
 
 
-def get_static_version_info(version_file: str = STATIC_VERSION_FILE) -> Dict[str, str]:
-    version_info: Dict[str, str] = {}
+def get_static_version_info(version_file: str = STATIC_VERSION_FILE) -> dict[str, str]:
+    version_info: dict[str, str] = {}
     with open(os.path.join(package_root, version_file), "rb") as f:
         exec(f.read(), {}, version_info)
     return version_info

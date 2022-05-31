@@ -393,12 +393,10 @@ class BaseRunner(metaclass=abc.ABCMeta):
 
         Is called in `overhead`.
         """
-        pass
 
     @abc.abstractmethod
     def _submit(self, x):
         """Is called in `_get_futures`."""
-        pass
 
     @property
     def tracebacks(self) -> List[Tuple[int, str]]:
