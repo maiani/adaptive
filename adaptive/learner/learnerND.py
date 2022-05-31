@@ -5,6 +5,7 @@ import itertools
 import random
 from collections import OrderedDict
 from collections.abc import Iterable
+from copy import deepcopy
 from typing import Any, Callable, Sequence
 
 import numpy as np
@@ -338,6 +339,7 @@ class LearnerND(BaseLearner):
         else:
             self._bounds_points = sorted(list(map(tuple, itertools.product(*bounds))))
             self._bbox = tuple(tuple(map(float, b)) for b in bounds)
+            self._interior = None
 
         self.ndim = len(self._bbox)
 
@@ -358,6 +360,7 @@ class LearnerND(BaseLearner):
         # for the output
         self._min_value = None
         self._max_value = None
+        self._old_scale = None
         self._output_multiplier = (
             1  # If we do not know anything, do not scale the values
         )
@@ -475,7 +478,7 @@ class LearnerND(BaseLearner):
 
     def inside_bounds(self, point: tuple[float, ...]) -> bool | np.bool_:
         """Check whether a point is inside the bounds."""
-        if hasattr(self, "_interior"):
+        if self._interior is not None:
             return self._interior.find_simplex(point, tol=1e-8) >= 0
         else:
             eps = 1e-8
@@ -940,7 +943,7 @@ class LearnerND(BaseLearner):
         else:
             raise ValueError("Only 1 or 2-dimensional plots can be generated.")
 
-    def plot_3D(self, with_triangulation: bool = False):
+    def plot_3D(self, with_triangulation: bool = False, return_fig: bool = False):
         """Plot the learner's data in 3D using plotly.
 
         Does *not* work with the
@@ -950,6 +953,9 @@ class LearnerND(BaseLearner):
         ----------
         with_triangulation : bool, default: False
             Add the verticices to the plot.
+        return_fig : bool, default: False
+            Return the `plotly.graph_objs.Figure` object instead of showing
+            the rendered plot (default).
 
         Returns
         -------
@@ -1020,14 +1026,7 @@ class LearnerND(BaseLearner):
 
         fig = plotly.graph_objs.Figure(data=plots, layout=layout)
 
-        return plotly.offline.iplot(fig)
-
-    def _get_data(self) -> OrderedDict:
-        return self.data
-
-    def _set_data(self, data: OrderedDict) -> None:
-        if data:
-            self.tell_many(*zip(*data.items()))
+        return fig if return_fig else plotly.offline.iplot(fig)
 
     def _get_iso(self, level: float = 0.0, which: str = "surface"):
         if which == "surface":
@@ -1218,3 +1217,10 @@ class LearnerND(BaseLearner):
             opacity=opacity,
             lighting=lighting,
         )
+
+    def _get_data(self) -> dict[str, Any]:
+        return deepcopy(self.__dict__)
+
+    def _set_data(self, state: dict[str, Any]) -> None:
+        for k, v in state.items():
+            setattr(self, k, v)

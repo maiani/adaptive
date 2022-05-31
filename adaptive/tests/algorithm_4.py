@@ -419,7 +419,7 @@ def f0(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     return x * np.sin(1 / x) * np.sqrt(abs(1 - x))
 
 
-def f7(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+def f7(x):
     return x**-0.5
 
 

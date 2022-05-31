@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import abc
 from contextlib import suppress
-from copy import deepcopy
 from typing import Any, Callable
+
+import cloudpickle
 
 from adaptive.utils import _RequireAttrsABCMeta, load, save
 
@@ -15,7 +16,7 @@ def uses_nth_neighbors(n: int) -> Callable:
     with ``n`` nearest neighbors
 
     The loss function will then receive the data of the N nearest neighbors
-    (``nth_neighbors``) aling with the data of the interval itself in a dict.
+    (``nth_neighbors``) along with the data of the interval itself in a dict.
     The `~adaptive.Learner1D` will also make sure that the loss is updated
     whenever one of the ``nth_neighbors`` changes.
 
@@ -196,7 +197,7 @@ class BaseLearner(metaclass=_RequireAttrsABCMeta):
             self._set_data(data)
 
     def __getstate__(self) -> dict[str, Any]:
-        return deepcopy(self.__dict__)
+        return cloudpickle.dumps(self.__dict__)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        self.__dict__ = state
+        self.__dict__ = cloudpickle.loads(state)

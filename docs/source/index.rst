@@ -16,9 +16,10 @@
    :maxdepth: 2
    :hidden:
 
+   algorithms_and_examples
    docs
    tutorial/tutorial
-   usage_examples
+   gallery
    reference/adaptive
    CHANGELOG
    faq

@@ -19,13 +19,16 @@ package_path = os.path.abspath("../..")
 sys.path.insert(0, package_path)
 # Insert into PYTHONPATH so that jupyter-sphinx will pick it up
 os.environ["PYTHONPATH"] = ":".join((package_path, os.environ.get("PYTHONPATH", "")))
+# Insert `docs/` such that we can run the logo scripts
+docs_path = os.path.abspath("..")
+sys.path.insert(1, docs_path)
 
 import adaptive  # noqa: E402, isort:skip
 
 # -- Project information -----------------------------------------------------
 
 project = "adaptive"
-copyright = "2018-2019, Adaptive Authors"
+copyright = "2018-2021, Adaptive Authors"
 author = "Adaptive Authors"
 
 # The short X.Y version
@@ -143,10 +146,15 @@ intersphinx_mapping = {
 }
 
 html_js_files = [
-    "https://cdn.bokeh.org/bokeh/release/bokeh-2.2.1.min.js",
-    "https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.2.1.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-2.4.0.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-widgets-2.4.0.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-tables-2.4.0.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-gl-2.4.0.min.js",
+    "https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-2.4.0.min.js",
 ]
-html_logo = "logo_docs.png"
+
+
+html_logo = "_static/logo_docs.png"
 
 
 def setup(app):

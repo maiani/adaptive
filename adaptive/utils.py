@@ -9,6 +9,7 @@ from contextlib import _GeneratorContextManager, contextmanager
 from itertools import product
 from typing import Any, Callable, Mapping, Sequence
 
+import cloudpickle
 from atomicwrites import AtomicWriter
 
 
@@ -49,7 +50,7 @@ def save(fname: str, data: Any, compress: bool = True) -> None:
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    blob = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+    blob = cloudpickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
     if compress:
         blob = gzip.compress(blob)
 
@@ -61,7 +62,7 @@ def load(fname: str, compress: bool = True):
     fname = os.path.expanduser(fname)
     _open = gzip.open if compress else open
     with _open(fname, "rb") as f:
-        return pickle.load(f)
+        return cloudpickle.load(f)
 
 
 def copy_docstring_from(other: Callable) -> Callable:
